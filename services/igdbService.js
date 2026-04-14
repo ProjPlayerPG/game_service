@@ -30,4 +30,31 @@ async function getGameById(id) {
   return data?.[0] || null
 }
 
-module.exports = { listRpgGames, getGameById }
+
+/**
+ * Recherche IGDB (tous jeux) pour autocomplete
+ * GET /api/games/search?q=zelda&limit=10&offset=0
+ */
+async function searchGames({ q, limit = 10, offset = 0 } = {}) {
+  const term = String(q || '').trim()
+
+  // On renvoie un tableau vide si query trop courte (évite spam IGDB)
+  if (term.length < 2) return []
+
+  const safeLimit = Math.min(Number(limit || 10), 20)
+  const safeOffset = Math.max(Number(offset || 0), 0)
+
+  // échappe les guillemets pour éviter de casser la requête IGDB
+  const safeTerm = term.replace(/"/g, '\\"')
+
+  const query = `
+    fields id,name,cover.url;
+    search "${safeTerm}";
+    limit ${safeLimit};
+    offset ${safeOffset};
+  `
+
+  return igdbQuery('/games', query)
+}
+
+module.exports = { listRpgGames, getGameById, searchGames }

@@ -1,6 +1,7 @@
 const express = require('express')
 const { listRpgGames } = require('../services/igdbService')
 const { getGameById } = require('../services/igdbService')
+const { searchGames } = require('../services/igdbService')
 
 const router = express.Router()
 
@@ -12,6 +13,20 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error(err.message)
     res.status(500).json({ error: 'Failed to fetch RPG games', details: err.message })
+  }
+})
+
+router.get('/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '')
+    const limit = Number(req.query.limit || 10)
+    const offset = Number(req.query.offset || 0)
+
+    const games = await searchGames({ q, limit, offset })
+    res.json(games)
+  } catch (err) {
+    console.error(err.message)
+    res.status(err.status || 500).json({ error: 'Failed to search games', details: err.message })
   }
 })
 
