@@ -2,13 +2,20 @@ const express = require('express')
 const { listRpgGames } = require('../services/igdbService')
 const { getGameById } = require('../services/igdbService')
 const { searchGames } = require('../services/igdbService')
+const { listSpotlightGames } = require('../services/igdbService')
 
 const router = express.Router()
 
 router.get('/', async (req, res) => {
   try {
     const limit = Number(req.query.limit || 10)
-    const games = await listRpgGames({ limit })
+    const offset = Number(req.query.offset || 0)
+    const tag = String(req.query.tag || '')
+    const platform = String(req.query.platform || '')
+    const releaseYear = Number(req.query.releaseYear || 0)
+    const sort = String(req.query.sort || 'release_desc')
+
+    const games = await listRpgGames({ limit, offset, tag, platform, releaseYear, sort })
     res.json(games)
   } catch (err) {
     console.error(err.message)
@@ -27,6 +34,19 @@ router.get('/search', async (req, res) => {
   } catch (err) {
     console.error(err.message)
     res.status(err.status || 500).json({ error: 'Failed to search games', details: err.message })
+  }
+})
+
+router.get('/spotlight', async (req, res) => {
+  try {
+    const limit = Number(req.query.limit || 6)
+    const mode = String(req.query.mode || 'recent')
+
+    const games = await listSpotlightGames({ limit, mode })
+    res.json(games)
+  } catch (err) {
+    console.error(err.message)
+    res.status(err.status || 500).json({ error: 'Failed to fetch spotlight games', details: err.message })
   }
 })
 

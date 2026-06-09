@@ -2,6 +2,37 @@ require('dotenv').config()
 
 let cachedToken = null
 let tokenExpiresAt = 0 // timestamp ms
+const queryCache = new Map()
+const cacheTtlMs = Number(process.env.IGDB_CACHE_TTL_MS || 10 * 60 * 1000)
+const maxCacheEntries = Number(process.env.IGDB_CACHE_MAX_ENTRIES || 200)
+
+function cacheKey(endpoint, query) {
+  return `${endpoint}:${query.replace(/\s+/g, ' ').trim()}`
+}
+
+function getCachedQuery(key) {
+  const entry = queryCache.get(key)
+  if (!entry) return null
+
+  if (Date.now() > entry.expiresAt) {
+    queryCache.delete(key)
+    return null
+  }
+
+  return entry.data
+}
+
+function setCachedQuery(key, data) {
+  if (queryCache.size >= maxCacheEntries) {
+    const oldestKey = queryCache.keys().next().value
+    if (oldestKey) queryCache.delete(oldestKey)
+  }
+
+  queryCache.set(key, {
+    data,
+    expiresAt: Date.now() + cacheTtlMs,
+  })
+}
 
 async function getAppAccessToken() {
   if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
@@ -27,7 +58,15 @@ async function getAppAccessToken() {
 }
 
 async function igdbQuery(endpoint, query) {
-  console.log('[IGDB QUERY]', endpoint, '\n' + query)
+  const key = cacheKey(endpoint, query)
+  const cached = getCachedQuery(key)
+
+  if (cached) {
+    console.log('[IGDB CACHE HIT]', endpoint)
+    return cached
+  }
+
+  console.log('[IGDB CACHE MISS]', endpoint, '\n' + query)
 
   const token = await getAppAccessToken() 
 
@@ -47,7 +86,10 @@ async function igdbQuery(endpoint, query) {
     throw new Error(`IGDB error: ${resp.status} ${text}`)
   }
 
-  return resp.json()
+  const data = await resp.json()
+  setCachedQuery(key, data)
+
+  return data
 }
 
 
