@@ -72,14 +72,62 @@ const blockedGameCategories = new Set([
   14, // update
 ])
 
+const blockedAdultTerms = [
+  '18+',
+  'adult content',
+  'adult game',
+  'adults only',
+  'eroge',
+  'erotic',
+  'erotica',
+  'erotique',
+  'explicit sexual',
+  'hentai',
+  'lewd',
+  'mature sexual',
+  'nsfw',
+  'nude',
+  'nudity',
+  'porn',
+  'pornographic',
+  'sexual content',
+  'sexually explicit',
+]
+
+function normalizeSafetyText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
 function isPrimaryGame(game) {
   if (game.category === undefined || game.category === null) return true
 
   return !blockedGameCategories.has(Number(game.category))
 }
 
+function hasAdultsOnlyRating(game) {
+  return game.age_ratings?.some((rating) => Number(rating.rating) === 12) || false
+}
+
+function isAdultOrEroticGame(game) {
+  if (hasAdultsOnlyRating(game)) return true
+
+  const searchableText = normalizeSafetyText(
+    [
+      game.name,
+      game.summary,
+      ...(game.genres?.map((genre) => genre.name) || []),
+      ...(game.themes?.map((theme) => theme.name) || []),
+    ].join(' '),
+  )
+
+  return blockedAdultTerms.some((term) => searchableText.includes(normalizeSafetyText(term)))
+}
+
 function filterPrimaryGames(games) {
-  return Array.isArray(games) ? games.filter(isPrimaryGame) : []
+  return Array.isArray(games) ? games.filter((game) => isPrimaryGame(game) && !isAdultOrEroticGame(game)) : []
 }
 
 async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', releaseYear = 0, sort = 'release_desc' } = {}) {
@@ -104,7 +152,7 @@ async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', r
   }
 
   const query = `
-    fields id,name,slug,category,first_release_date,cover.url,genres.name,platforms.name;
+    fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating;
     where ${whereParts.join(' & ')};
     sort ${sortClause(sort)};
     limit ${Math.min(safeLimit * 3, 100)};
@@ -132,7 +180,7 @@ async function listSpotlightGames({ limit = 6, mode = 'recent' } = {}) {
   }
 
   const query = `
-    fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,hypes,total_rating,total_rating_count;
+    fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,themes.name,age_ratings.rating,hypes,total_rating,total_rating_count;
     where ${whereParts.join(' & ')};
     sort ${sort};
     limit ${Math.min(safeLimit * 3, 60)};
@@ -145,7 +193,7 @@ async function getRandomRpgGame() {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const offset = Math.floor(Math.random() * 3000)
     const query = `
-      fields id,name,category;
+      fields id,name,category,summary,themes.name,age_ratings.rating;
       where genres = (12) & cover != null & summary != null;
       limit 5;
       offset ${offset};
@@ -158,7 +206,7 @@ async function getRandomRpgGame() {
   }
 
   const fallbackQuery = `
-    fields id,name,category;
+    fields id,name,category,summary,themes.name,age_ratings.rating;
     where genres = (12) & cover != null;
     sort first_release_date desc;
     limit 10;
@@ -240,7 +288,7 @@ async function searchGames({ q, limit = 10, offset = 0 } = {}) {
   const safeTerm = term.replace(/"/g, '\\"')
 
   const query = `
-    fields id,name,category,cover.url;
+    fields id,name,category,summary,cover.url,themes.name,age_ratings.rating;
     search "${safeTerm}";
     limit ${Math.min(safeLimit * 3, 60)};
     offset ${safeOffset};
