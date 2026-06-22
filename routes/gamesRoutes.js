@@ -3,6 +3,8 @@ const { listRpgGames } = require('../services/igdbService')
 const { getGameById } = require('../services/igdbService')
 const { searchGames } = require('../services/igdbService')
 const { listSpotlightGames } = require('../services/igdbService')
+const { getRandomRpgGame } = require('../services/igdbService')
+const { translateGame } = require('../services/translationService')
 
 const router = express.Router()
 
@@ -50,6 +52,19 @@ router.get('/spotlight', async (req, res) => {
   }
 })
 
+router.get('/random', async (_req, res) => {
+  try {
+    const game = await getRandomRpgGame()
+
+    if (!game) return res.status(404).json({ error: 'Random RPG not found' })
+
+    res.json(game)
+  } catch (err) {
+    console.error(err.message)
+    res.status(err.status || 500).json({ error: 'Failed to fetch random RPG', details: err.message })
+  }
+})
+
 router.get('/:id', async (req, res) => {
   try {
     const game = await getGameById(req.params.id)
@@ -60,6 +75,16 @@ router.get('/:id', async (req, res) => {
   } catch (err) {
     console.error(err.message)
     res.status(err.status || 500).json({ error: 'Failed to fetch game', details: err.message })
+  }
+})
+
+router.post('/:id/translation', async (req, res) => {
+  try {
+    const translation = await translateGame(req.params.id)
+    res.json(translation)
+  } catch (err) {
+    console.error(err.message)
+    res.status(err.status || 500).json({ error: 'Failed to translate game', details: err.message })
   }
 })
 
