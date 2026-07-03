@@ -42,14 +42,14 @@ IGDB_CACHE_MAX_ENTRIES=200
 : modele Mistral utilise. Valeur par defaut: `mistral-small-latest`.
 
 `IGDB_CACHE_TTL_MS`
-: duree de vie du cache IGDB en millisecondes.
+: durée de vie du cache IGDB en millisecondes.
 
 `IGDB_CACHE_MAX_ENTRIES`
-: nombre maximal d'entrees en cache.
+: nombre maximal d'entrées en cache.
 
 ## Securite
 
-Ces variables ne doivent jamais etre exposees dans le frontend:
+Ces variables ne doivent jamais être exposées dans le frontend:
 
 - `TWITCH_CLIENT_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY`
