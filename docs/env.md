@@ -1,6 +1,6 @@
 # Variables d'environnement game_service
 
-Fichier local: `game_service/game_service/.env`
+Fichier local : `game_service/game_service/.env`
 
 ```env
 PORT=3001
@@ -18,28 +18,28 @@ IGDB_CACHE_TTL_MS=600000
 IGDB_CACHE_MAX_ENTRIES=200
 ```
 
-## Details
+## Détails
 
 `PORT`
 : port HTTP du service Express.
 
 `TWITCH_CLIENT_ID`
-: identifiant client Twitch utilise pour obtenir un token IGDB.
+: identifiant client Twitch utilisé pour obtenir un token IGDB.
 
 `TWITCH_CLIENT_SECRET`
-: secret Twitch utilise pour obtenir un token IGDB.
+: secret Twitch utilisé pour obtenir un token IGDB.
 
 `SUPABASE_URL`
-: URL du projet Supabase. `NEXT_PUBLIC_SUPABASE_URL` peut aussi etre lu en fallback.
+: URL du projet Supabase. `NEXT_PUBLIC_SUPABASE_URL` peut aussi être lu en fallback.
 
 `SUPABASE_SERVICE_ROLE_KEY`
-: cle serveur Supabase. Elle sert au cache des traductions et a la lecture des favoris pour les recommandations.
+: clé serveur Supabase. Elle sert au cache des traductions et à la lecture des favoris pour les recommandations.
 
 `MISTRAL_API_KEY`
-: cle API Mistral pour traduire et recommander.
+: clé API Mistral pour traduire et recommander.
 
 `MISTRAL_MODEL`
-: modele Mistral utilise. Valeur par defaut: `mistral-small-latest`.
+: modèle Mistral utilisé. Valeur par défaut : `mistral-small-latest`.
 
 `IGDB_CACHE_TTL_MS`
 : durée de vie du cache IGDB en millisecondes.
@@ -47,9 +47,9 @@ IGDB_CACHE_MAX_ENTRIES=200
 `IGDB_CACHE_MAX_ENTRIES`
 : nombre maximal d'entrées en cache.
 
-## Securite
+## Sécurité
 
-Ces variables ne doivent jamais être exposées dans le frontend:
+Ces variables ne doivent jamais être exposées dans le frontend :
 
 - `TWITCH_CLIENT_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY`

@@ -1,14 +1,14 @@
 # Endpoints game_service
 
-Les endpoints exacts peuvent evoluer, mais le service expose les routes principales suivantes.
+Les endpoints exacts peuvent évoluer, mais le service expose les routes principales suivantes.
 
 ## Jeux
 
 ### `GET /api/games`
 
-Retourne le catalogue RPG pagine et filtre.
+Retourne le catalogue RPG paginé et filtré.
 
-Parametres courants:
+Paramètres courants :
 
 - `page`
 - `tag`
@@ -24,21 +24,21 @@ Le service exclut les extensions et contenus adultes.
 
 ### `GET /api/games/spotlight`
 
-Retourne une selection de jeux recents ou mis en avant pour la section "Nouvelles sorties RPG".
+Retourne une sélection de jeux récents ou mis en avant pour la section "Nouvelles sorties RPG".
 
 ### `GET /api/games/random`
 
-Retourne un RPG aleatoire valide.
+Retourne un RPG aléatoire valide.
 
-Contraintes:
+Contraintes :
 
 - RPG.
 - Pas DLC/extension.
-- Pas contenu adulte/erotique.
+- Pas contenu adulte/érotique.
 
 ### `GET /api/games/:id`
 
-Retourne une fiche detaillee:
+Retourne une fiche détaillée :
 
 - titre
 - genres
@@ -47,32 +47,32 @@ Retourne une fiche detaillee:
 - date de sortie
 - plateformes
 - studio
-- editeur
-- extensions liees
+- éditeur
+- extensions liées
 - jeu de base si la fiche est une extension
 
 ### `POST /api/games/:id/translation`
 
-Traduit `summary` et `storyline` en francais.
+Traduit `summary` et `storyline` en français.
 
-Comportement:
+Comportement :
 
 - Retourne le cache Supabase si disponible.
-- Appelle Mistral uniquement si necessaire.
-- Ne traduit pas les titres, noms propres, plateformes, genres, studios ou editeurs.
+- Appelle Mistral uniquement si nécessaire.
+- Ne traduit pas les titres, noms propres, plateformes, genres, studios ou éditeurs.
 
 ## Chatbot
 
 ### `POST /api/chat/recommendations`
 
-Retourne 3 a 5 recommandations RPG.
+Retourne 3 à 5 recommandations RPG.
 
-Le backend:
+Le backend :
 
 - Analyse la demande utilisateur.
-- Cherche une selection limitee de candidats IGDB.
+- Cherche une sélection limitée de candidats IGDB.
 - Exclut les favoris de l'utilisateur si une session est fournie.
-- Exclut les contenus adultes/erotiques.
-- Demande a Mistral de choisir parmi les candidats.
+- Exclut les contenus adultes/érotiques.
+- Demande à Mistral de choisir parmi les candidats.
 
-Le frontend ne doit pas envoyer tout le catalogue a Mistral.
+Le frontend ne doit pas envoyer tout le catalogue à Mistral.

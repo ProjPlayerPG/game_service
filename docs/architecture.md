@@ -1,14 +1,14 @@
 # Architecture game_service
 
-`game_service` est un service Express qui sert de couche backend entre le frontend PlayerPG et les APIs externes.
+`game_service` est un service Express qui sert de couche backend entre le frontend PlayerPG et les API externes.
 
-## Responsabilites
+## Responsabilités
 
-- Obtenir un token Twitch pour acceder a IGDB.
-- Executer les requetes IGDB.
-- Mettre en cache les reponses IGDB.
-- Normaliser les donnees jeux pour le frontend.
-- Filtrer les contenus non souhaites.
+- Obtenir un token Twitch pour accéder à IGDB.
+- Exécuter les requêtes IGDB.
+- Mettre en cache les réponses IGDB.
+- Normaliser les données jeux pour le frontend.
+- Filtrer les contenus non souhaités.
 - Appeler Mistral pour la traduction et les recommandations.
 - Utiliser Supabase REST avec la service role key pour le cache IA et les favoris.
 
@@ -19,33 +19,33 @@ Frontend Next.js
   |
   v
 game_service Express
-  |-- IGDB API: catalogue, recherche, detail, nouvelles sorties, random
-  |-- Mistral API: traduction, recommandations
-  |-- Supabase REST: cache traductions, favoris utilisateur
+  |-- IGDB API : catalogue, recherche, détail, nouvelles sorties, random
+  |-- Mistral API : traduction, recommandations
+  |-- Supabase REST : cache traductions, favoris utilisateur
 ```
 
 ## Services internes
 
-- `api/api.js`: client IGDB, token Twitch, cache HTTP.
-- `services/igdbService.js`: logique catalogue/recherche/detail/random et filtres.
-- `services/translationService.js`: traduction Mistral + cache Supabase.
-- `services/chatService.js`: generation de recommandations.
-- `services/mistralService.js`: client Mistral.
-- `services/supabaseRestService.js`: acces REST Supabase avec service role.
+- `api/api.js` : client IGDB, token Twitch, cache HTTP.
+- `services/igdbService.js` : logique catalogue/recherche/détail/random et filtres.
+- `services/translationService.js` : traduction Mistral + cache Supabase.
+- `services/chatService.js` : génération de recommandations.
+- `services/mistralService.js` : client Mistral.
+- `services/supabaseRestService.js` : accès REST Supabase avec service role.
 
 ## Filtres de contenu
 
-Le service evite de renvoyer:
+Le service évite de renvoyer :
 
 - DLC et extensions dans le catalogue, la recherche et le random.
-- Jeux avec categorie non souhaitee pour les listes principales.
-- Jeux adultes/erotiques detectes par age ratings ou mots cles.
+- Jeux avec catégorie non souhaitée pour les listes principales.
+- Jeux adultes/érotiques détectés par age ratings ou mots-clés.
 
 Les extensions restent accessibles depuis les fiches des jeux de base.
 
 ## Cache
 
-Le cache IGDB limite les appels externes et ameliore le temps de reponse. Il est configure par:
+Le cache IGDB limite les appels externes et améliore le temps de réponse. Il est configuré par :
 
 - `IGDB_CACHE_TTL_MS`
 - `IGDB_CACHE_MAX_ENTRIES`
