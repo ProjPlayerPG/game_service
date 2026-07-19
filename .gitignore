@@ -31,3 +31,5 @@ composer.lock
 # Build
 build/
 dist/
+coverage/
+html/

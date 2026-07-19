@@ -1,31 +1,7 @@
 const { askMistral, extractJsonObject } = require('./mistralService')
 const { getGameById } = require('./igdbService')
 const { getTranslation, saveTranslation } = require('./supabaseRestService')
-
-function normalizeText(value) {
-  return String(value || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-}
-
-function isDifferentFromOriginal(translated, original) {
-  if (!original) return true
-  if (!translated) return false
-
-  return normalizeText(translated) !== normalizeText(original)
-}
-
-function hasTranslation(translation, game) {
-  const needsSummary = Boolean(game.summary)
-  const needsStoryline = Boolean(game.storyline)
-
-  return (
-    translation &&
-    (!needsSummary || isDifferentFromOriginal(translation.summary_fr, game.summary)) &&
-    (!needsStoryline || isDifferentFromOriginal(translation.storyline_fr, game.storyline))
-  )
-}
+const { hasTranslation, isDifferentFromOriginal } = require('./translationUtils')
 
 async function translateGame(gameId) {
   const game = await getGameById(gameId)

@@ -1,4 +1,12 @@
 const { igdbQuery } = require('../api/api')
+const { filterPrimaryGames } = require('./gameSafety')
+const {
+  escapeSearchTerm,
+  normalizeFilter,
+  sortClause,
+  todayUtcTimestamp,
+  yearRange,
+} = require('./igdbQueryUtils')
 
 const genreFilters = {
   rpg: 12,
@@ -20,114 +28,6 @@ const platformFilters = {
   'xbox series': 169,
   'nintendo switch': 130,
   switch: 130,
-}
-
-function normalizeFilter(value) {
-  return String(value || '').trim().toLowerCase()
-}
-
-function sortClause(value) {
-  switch (normalizeFilter(value)) {
-    case 'name_asc':
-      return 'name asc'
-    case 'name_desc':
-      return 'name desc'
-    case 'release_asc':
-      return 'first_release_date asc'
-    case 'release_desc':
-    default:
-      return 'first_release_date desc'
-  }
-}
-
-function yearRange(year) {
-  const value = Number(year || 0)
-  if (!Number.isInteger(value) || value < 1970 || value > 2100) return null
-
-  const start = Math.floor(Date.UTC(value, 0, 1) / 1000)
-  const end = Math.floor(Date.UTC(value + 1, 0, 1) / 1000)
-
-  return { start, end }
-}
-
-function todayUtcTimestamp() {
-  const now = new Date()
-  return Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 1000)
-}
-
-function escapeSearchTerm(term) {
-  return String(term || '').trim().replace(/"/g, '\\"')
-}
-
-const blockedGameCategories = new Set([
-  1, // DLC/addon
-  2, // expansion
-  3, // bundle
-  4, // standalone expansion
-  5, // mod
-  6, // episode
-  7, // season
-  12, // fork
-  13, // pack
-  14, // update
-])
-
-const blockedAdultTerms = [
-  '18+',
-  'adult content',
-  'adult game',
-  'adults only',
-  'eroge',
-  'erotic',
-  'erotica',
-  'erotique',
-  'explicit sexual',
-  'hentai',
-  'lewd',
-  'mature sexual',
-  'nsfw',
-  'nude',
-  'nudity',
-  'porn',
-  'pornographic',
-  'sexual content',
-  'sexually explicit',
-]
-
-function normalizeSafetyText(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-}
-
-function isPrimaryGame(game) {
-  if (game.category === undefined || game.category === null) return true
-
-  return !blockedGameCategories.has(Number(game.category))
-}
-
-function hasAdultsOnlyRating(game) {
-  return game.age_ratings?.some((rating) => Number(rating.rating) === 12) || false
-}
-
-function isAdultOrEroticGame(game) {
-  if (hasAdultsOnlyRating(game)) return true
-
-  const searchableText = normalizeSafetyText(
-    [
-      game.name,
-      game.summary,
-      ...(game.genres?.map((genre) => genre.name) || []),
-      ...(game.themes?.map((theme) => theme.name) || []),
-    ].join(' '),
-  )
-
-  return blockedAdultTerms.some((term) => searchableText.includes(normalizeSafetyText(term)))
-}
-
-function filterPrimaryGames(games) {
-  return Array.isArray(games) ? games.filter((game) => isPrimaryGame(game) && !isAdultOrEroticGame(game)) : []
 }
 
 async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', releaseYear = 0, sort = 'release_desc' } = {}) {

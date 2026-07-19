@@ -51,3 +51,13 @@ Le cache IGDB limite les appels externes et améliore le temps de réponse. Il e
 - `IGDB_CACHE_MAX_ENTRIES`
 
 Le cache des traductions est persistant dans Supabase via `game_translations`.
+
+## Accès Supabase
+
+Le service utilise `SUPABASE_SERVICE_ROLE_KEY` uniquement côté serveur pour :
+
+- lire et écrire `game_translations` ;
+- lire les identifiants IGDB présents dans `favorites` ;
+- valider le JWT utilisateur transmis au chatbot.
+
+La service role key contourne RLS, mais les tables doivent également accorder les privilèges SQL au rôle `service_role`. Le [script d'installation Supabase](../../../frontend/frontend/docs/supabase-setup.sql) configure ces grants, les clés étrangères et les policies utilisées par l'ensemble du projet.

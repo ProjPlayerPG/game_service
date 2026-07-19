@@ -2,6 +2,8 @@
 
 Les endpoints exacts peuvent évoluer, mais le service expose les routes principales suivantes.
 
+URL locale recommandée : `http://localhost:3001`.
+
 ## Jeux
 
 ### `GET /api/games`
