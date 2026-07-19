@@ -34,7 +34,7 @@ async function recommendGames({ message, token }) {
   if (!candidates.length) {
     return {
       recommendations: [],
-      message: 'Aucun candidat RPG exploitable trouve pour cette demande.',
+      message: 'Aucun candidat RPG exploitable trouvé pour cette demande.',
     }
   }
 
