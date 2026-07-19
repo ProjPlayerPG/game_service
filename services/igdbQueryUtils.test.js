@@ -1,6 +1,7 @@
 const {
   escapeSearchTerm,
   normalizeFilter,
+  paginationWindow,
   sortClause,
   yearRange,
 } = require('./igdbQueryUtils')
@@ -34,5 +35,26 @@ describe('construction des requêtes IGDB', () => {
 
   it('échappe les guillemets dans une recherche IGDB', () => {
     expect(escapeSearchTerm('  Dragon "Quest"  ')).toBe('Dragon \\"Quest\\"')
+  })
+
+  it('calcule la fenêtre nécessaire pour une page filtrée', () => {
+    expect(paginationWindow(13, 24)).toEqual({
+      safeLimit: 13,
+      safeOffset: 24,
+      fetchLimit: 111,
+    })
+  })
+
+  it('normalise et plafonne les valeurs de pagination', () => {
+    expect(paginationWindow('abc', -4, { maxLimit: 20, maxPool: 60 })).toEqual({
+      safeLimit: 10,
+      safeOffset: 0,
+      fetchLimit: 30,
+    })
+    expect(paginationWindow(80, 100, { maxLimit: 20, maxPool: 200 })).toEqual({
+      safeLimit: 20,
+      safeOffset: 100,
+      fetchLimit: 200,
+    })
   })
 })

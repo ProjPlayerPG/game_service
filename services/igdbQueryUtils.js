@@ -35,9 +35,29 @@ function escapeSearchTerm(term) {
   return String(term || '').trim().replace(/"/g, '\\"')
 }
 
+function paginationWindow(
+  limit = 10,
+  offset = 0,
+  { maxLimit = 50, maxPool = 500, multiplier = 3 } = {},
+) {
+  const parsedLimit = Number(limit)
+  const parsedOffset = Number(offset)
+  const safeLimit = Number.isInteger(parsedLimit) && parsedLimit > 0
+    ? Math.min(parsedLimit, maxLimit)
+    : Math.min(10, maxLimit)
+  const safeOffset = Number.isInteger(parsedOffset) && parsedOffset > 0 ? parsedOffset : 0
+  const fetchLimit = Math.min(
+    Math.max((safeOffset + safeLimit) * multiplier, safeLimit),
+    maxPool,
+  )
+
+  return { safeLimit, safeOffset, fetchLimit }
+}
+
 module.exports = {
   escapeSearchTerm,
   normalizeFilter,
+  paginationWindow,
   sortClause,
   todayUtcTimestamp,
   yearRange,

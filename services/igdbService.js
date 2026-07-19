@@ -3,6 +3,7 @@ const { filterPrimaryGames } = require('./gameSafety')
 const {
   escapeSearchTerm,
   normalizeFilter,
+  paginationWindow,
   sortClause,
   todayUtcTimestamp,
   yearRange,
@@ -31,8 +32,7 @@ const platformFilters = {
 }
 
 async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', releaseYear = 0, sort = 'release_desc' } = {}) {
-  const safeLimit = Math.min(Number(limit || 10), 50)
-  const safeOffset = Math.max(Number(offset || 0), 0)
+  const { safeLimit, safeOffset, fetchLimit } = paginationWindow(limit, offset)
   const tagId = genreFilters[normalizeFilter(tag)]
   const platformId = platformFilters[normalizeFilter(platform)]
   const releaseRange = yearRange(releaseYear)
@@ -55,11 +55,13 @@ async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', r
     fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating;
     where ${whereParts.join(' & ')};
     sort ${sortClause(sort)};
-    limit ${Math.min(safeLimit * 3, 100)};
-    offset ${safeOffset};
+    limit ${fetchLimit};
   `
 
-  return filterPrimaryGames(await igdbQuery('/games', query)).slice(0, safeLimit)
+  return filterPrimaryGames(await igdbQuery('/games', query)).slice(
+    safeOffset,
+    safeOffset + safeLimit,
+  )
 }
 
 async function listSpotlightGames({ limit = 6, mode = 'recent' } = {}) {
@@ -181,20 +183,21 @@ async function searchGames({ q, limit = 10, offset = 0 } = {}) {
   // On renvoie un tableau vide si query trop courte (évite spam IGDB)
   if (term.length < 2) return []
 
-  const safeLimit = Math.min(Number(limit || 10), 20)
-  const safeOffset = Math.max(Number(offset || 0), 0)
-
-  // échappe les guillemets pour éviter de casser la requête IGDB
-  const safeTerm = term.replace(/"/g, '\\"')
+  const { safeLimit, safeOffset, fetchLimit } = paginationWindow(limit, offset, {
+    maxLimit: 20,
+  })
+  const safeTerm = escapeSearchTerm(term)
 
   const query = `
-    fields id,name,category,summary,cover.url,themes.name,age_ratings.rating;
+    fields id,name,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating;
     search "${safeTerm}";
-    limit ${Math.min(safeLimit * 3, 60)};
-    offset ${safeOffset};
+    limit ${fetchLimit};
   `
 
-  return filterPrimaryGames(await igdbQuery('/games', query)).slice(0, safeLimit)
+  return filterPrimaryGames(await igdbQuery('/games', query)).slice(
+    safeOffset,
+    safeOffset + safeLimit,
+  )
 }
 
 module.exports = {
