@@ -16,6 +16,7 @@ MISTRAL_MODEL=mistral-small-latest
 
 IGDB_CACHE_TTL_MS=600000
 IGDB_CACHE_MAX_ENTRIES=200
+CORS_ORIGINS=http://localhost:3000
 ```
 
 ## Détails
@@ -46,6 +47,9 @@ IGDB_CACHE_MAX_ENTRIES=200
 
 `IGDB_CACHE_MAX_ENTRIES`
 : nombre maximal d'entrées en cache.
+
+`CORS_ORIGINS`
+: liste d'origines autorisées, séparées par des virgules. En production, renseigner l'URL Vercel sans slash final. Si la variable est absente, toutes les origines sont acceptées afin de faciliter le premier déploiement.
 
 ## Sécurité
 
