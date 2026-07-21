@@ -34,6 +34,7 @@ Le service écoute sur `PORT`, ou `3000` si la variable n'est pas définie. La c
 - [Variables d'environnement](docs/env.md)
 - [Endpoints](docs/endpoints.md)
 - [Tests et couverture](../../frontend/frontend/docs/tests.md)
+- [Déploiement](../../frontend/frontend/docs/deployment.md)
 
 ## Dépôt lié
 
