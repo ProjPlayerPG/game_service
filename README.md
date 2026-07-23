@@ -33,13 +33,13 @@ Le service écoute sur `PORT`, ou `3000` si la variable n'est pas définie. La c
 - [Architecture](docs/architecture.md)
 - [Variables d'environnement](docs/env.md)
 - [Endpoints](docs/endpoints.md)
-- [Tests et couverture](../../frontend/frontend/docs/tests.md)
-- [Déploiement](../../frontend/frontend/docs/deployment.md)
+- [Tests et couverture](https://github.com/ProjPlayerPG/frontend/blob/master/docs/tests.md)
+- [Déploiement](https://github.com/ProjPlayerPG/frontend/blob/master/docs/deployment.md)
 
 ## Dépôt lié
 
 Le frontend Next.js consomme ce service via `NEXT_PUBLIC_GAME_SERVICE_URL`.
 
-- [Documentation frontend](../../frontend/frontend/README.md)
-- [Installation complète et parcours jury](../../frontend/frontend/docs/installation.md)
-- [Schéma SQL Supabase et policies](../../frontend/frontend/docs/supabase-setup.sql)
+- [Documentation frontend](https://github.com/ProjPlayerPG/frontend/blob/master/README.md)
+- [Installation complète et parcours](https://github.com/ProjPlayerPG/frontend/blob/master/docs/installation.md)
+- [Schéma SQL Supabase et policies](https://github.com/ProjPlayerPG/frontend/blob/master/docs/supabase-setup.sql)
