@@ -1,48 +1,18 @@
 const {
-  extractSearchTerms,
   normalizeRecommendation,
-  rankCandidates,
   simplifyGame,
   uniqueById,
 } = require('./chatUtils')
+const { buildReferenceProfile } = require('./chatSimilarity')
 
-describe('préparation des recommandations', () => {
-  it('retire les mots vides et reconnaît une demande tactique', () => {
-    const terms = extractSearchTerms('Je veux un RPG tactique avec une bonne histoire')
-
-    expect(terms).toContain('tactique')
-    expect(terms).toContain('histoire')
-    expect(terms).toContain('tactical RPG')
-    expect(terms).not.toContain('veux')
-  })
-
-  it('ajoute les recherches spécialisées Pokémon et rom hack', () => {
-    const terms = extractSearchTerms('Je cherche un Pokémon rom hack')
-
-    expect(terms).toContain('pokemon')
-    expect(terms).toContain('Pokemon')
-    expect(terms).toContain('rom hack')
-    expect(terms.length).toBeLessThanOrEqual(5)
-  })
-
+describe('formatage des recommandations', () => {
   it('déduplique les candidats en conservant leur premier ordre', () => {
     const first = { id: 1, name: 'Premier' }
+
     expect(uniqueById([first, { id: 1, name: 'Doublon' }, { id: 2, name: 'Second' }])).toEqual([
       first,
       { id: 2, name: 'Second' },
     ])
-  })
-
-  it('classe en priorité un titre cité dans la demande', () => {
-    const ranked = rankCandidates(
-      [
-        { id: 1, name: 'Autre jeu', summary: '', total_rating_count: 5000 },
-        { id: 2, name: 'Dragon Quest', summary: '', total_rating_count: 10 },
-      ],
-      'Je voudrais Dragon Quest',
-    )
-
-    expect(ranked[0].id).toBe(2)
   })
 
   it('simplifie les données envoyées à Mistral', () => {
@@ -60,17 +30,66 @@ describe('préparation des recommandations', () => {
       id: 4,
       name: 'Chrono Trigger',
       summary: 'Voyage temporel',
+      storyline: '',
       genres: ['RPG'],
       themes: ['Fantasy'],
+      keywords: [],
+      game_modes: [],
+      player_perspectives: [],
       platforms: ['SNES'],
       release_year: 1995,
+    })
+  })
+
+  it('ajoute uniquement les similitudes factuelles avec le jeu de référence', () => {
+    const referenceProfile = buildReferenceProfile([
+      {
+        id: 1,
+        name: 'Fire Emblem',
+        genres: [
+          { id: 12, name: 'Role-playing (RPG)' },
+          { id: 15, name: 'Strategy' },
+        ],
+        themes: [{ id: 17, name: 'Fantasy' }],
+        keywords: [{ id: 100, name: 'Grid-based movement' }],
+        game_modes: [{ id: 1, name: 'Single player' }],
+        similar_games: [2],
+      },
+    ])
+
+    expect(
+      simplifyGame(
+        {
+          id: 2,
+          name: 'Tactics Ogre',
+          genres: [
+            { id: 12, name: 'Role-playing (RPG)' },
+            { id: 15, name: 'Strategy' },
+          ],
+          themes: [{ id: 17, name: 'Fantasy' }],
+          keywords: [{ id: 100, name: 'Grid-based movement' }],
+          game_modes: [{ id: 1, name: 'Single player' }],
+        },
+        referenceProfile,
+      ).similarity_with_reference,
+    ).toEqual({
+      listed_as_similar_by_igdb: true,
+      shared_secondary_genres: ['Strategy'],
+      shared_themes: ['Fantasy'],
+      shared_keywords: ['Grid-based movement'],
+      shared_game_modes: ['Single player'],
     })
   })
 
   it('n’accepte que les recommandations correspondant aux candidats', () => {
     const candidates = new Map([[7, { id: 7, name: 'Final Fantasy IX' }]])
 
-    expect(normalizeRecommendation({ id: '7', reason: '  Une grande aventure.  ' }, candidates)).toEqual({
+    expect(
+      normalizeRecommendation(
+        { id: '7', reason: '  Une grande aventure.  ' },
+        candidates,
+      ),
+    ).toEqual({
       id: 7,
       name: 'Final Fantasy IX',
       reason: 'Une grande aventure.',

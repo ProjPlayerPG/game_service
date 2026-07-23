@@ -10,6 +10,8 @@ export default defineConfig({
       include: [
         'services/gameSafety.js',
         'services/igdbQueryUtils.js',
+        'services/chatRequestUtils.js',
+        'services/chatSimilarity.js',
         'services/chatUtils.js',
         'services/translationUtils.js',
       ],
