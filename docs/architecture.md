@@ -27,9 +27,17 @@ game_service Express
 ## Services internes
 
 - `api/api.js` : client IGDB, token Twitch, cache HTTP.
-- `services/igdbService.js` : logique catalogue/recherche/détail/random et filtres.
+- `services/igdbService.js` : logique catalogue/recherche/détail/random, filtres et
+  multi-requêtes de jeux similaires.
 - `services/translationService.js` : traduction Mistral + cache Supabase.
-- `services/chatService.js` : génération de recommandations.
+- `services/chatRequestUtils.js` : analyse de la demande, extraction des termes de
+  recherche et identification des jeux cités comme références.
+- `services/chatSimilarity.js` : exclusion des jeux de référence et de leur série,
+  construction des profils, mesure de similarité et classement des candidats.
+- `services/chatUtils.js` : normalisation, dédoublonnage et formatage des jeux pour
+  le chatbot.
+- `services/chatService.js` : orchestration de la recommandation et génération de
+  la réponse avec Mistral.
 - `services/mistralService.js` : client Mistral.
 - `services/supabaseRestService.js` : accès REST Supabase avec service role.
 

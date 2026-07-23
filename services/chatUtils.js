@@ -1,110 +1,49 @@
-const stopWords = new Set([
-  'je',
-  'veux',
-  'des',
-  'de',
-  'du',
-  'un',
-  'une',
-  'le',
-  'la',
-  'les',
-  'avec',
-  'pour',
-  'qui',
-  'que',
-  'sur',
-  'dans',
-  'rpg',
-  'jeu',
-  'jeux',
-  'cherche',
-  'aimerais',
-  'recommande',
-  'recommandes',
-  'style',
-  'genre',
-])
+const { referenceSimilarity } = require('./chatSimilarity')
 
-function simplifyGame(game) {
-  return {
+function relationNames(values, limit = 12) {
+  return (Array.isArray(values) ? values : [])
+    .map((relation) => relation?.name)
+    .filter(Boolean)
+    .slice(0, limit)
+}
+
+function simplifyGame(game, referenceProfile) {
+  const simplified = {
     id: game.id,
     name: game.name,
     summary: game.summary || '',
-    genres: game.genres?.map((genre) => genre.name) || [],
-    themes: game.themes?.map((theme) => theme.name) || [],
-    platforms: game.platforms?.map((platform) => platform.name) || [],
+    storyline: game.storyline || '',
+    genres: relationNames(game.genres),
+    themes: relationNames(game.themes),
+    keywords: relationNames(game.keywords),
+    game_modes: relationNames(game.game_modes),
+    player_perspectives: relationNames(game.player_perspectives),
+    platforms: relationNames(game.platforms),
     release_year: game.first_release_date
       ? new Date(game.first_release_date * 1000).getUTCFullYear()
       : null,
   }
-}
 
-function normalizeForTerms(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-}
-
-function extractSearchTerms(message) {
-  const normalized = normalizeForTerms(message)
-  const terms = new Set()
-  const words = normalized
-    .replace(/[^a-z0-9\s-]/g, ' ')
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 3 && !stopWords.has(word))
-
-  if (normalized.includes('pokemon')) {
-    terms.add('Pokemon')
-    terms.add('Pokemon RPG')
+  if (referenceProfile?.hasReferenceGames) {
+    const similarity = referenceSimilarity(game, referenceProfile)
+    simplified.similarity_with_reference = {
+      listed_as_similar_by_igdb: similarity.isSimilarGame,
+      shared_secondary_genres: relationNames(game.genres).filter((name, index) =>
+        similarity.sharedGenreIndexes.has(index),
+      ),
+      shared_themes: relationNames(game.themes).filter((name, index) =>
+        similarity.sharedThemeIndexes.has(index),
+      ),
+      shared_keywords: relationNames(game.keywords).filter((name, index) =>
+        similarity.sharedKeywordIndexes.has(index),
+      ),
+      shared_game_modes: relationNames(game.game_modes).filter((name, index) =>
+        similarity.sharedGameModeIndexes.has(index),
+      ),
+    }
   }
 
-  if (normalized.includes('fangame') || normalized.includes('fan game')) {
-    terms.add('fan game')
-  }
-
-  if (normalized.includes('hack-rom') || normalized.includes('hack rom') || normalized.includes('rom hack')) {
-    terms.add('rom hack')
-  }
-
-  if (normalized.includes('tactical') || normalized.includes('tactique')) {
-    terms.add('tactical RPG')
-  }
-
-  if (normalized.includes('tour par tour') || normalized.includes('turn based')) {
-    terms.add('turn based RPG')
-  }
-
-  for (const word of words.slice(0, 6)) {
-    terms.add(word)
-  }
-
-  return Array.from(terms).slice(0, 5)
-}
-
-function rankCandidates(games, message) {
-  const normalizedMessage = normalizeForTerms(message)
-
-  return [...games].sort((a, b) => {
-    const aName = normalizeForTerms(a.name)
-    const bName = normalizeForTerms(b.name)
-    const aSummary = normalizeForTerms(a.summary)
-    const bSummary = normalizeForTerms(b.summary)
-    const aScore =
-      Number(normalizedMessage.includes(aName)) * 5 +
-      Number(aName.split(/\s+/).some((part) => part.length > 3 && normalizedMessage.includes(part))) * 3 +
-      Number(aSummary.includes('pokemon')) * Number(normalizedMessage.includes('pokemon')) * 3 +
-      (a.total_rating_count || 0) / 1000
-    const bScore =
-      Number(normalizedMessage.includes(bName)) * 5 +
-      Number(bName.split(/\s+/).some((part) => part.length > 3 && normalizedMessage.includes(part))) * 3 +
-      Number(bSummary.includes('pokemon')) * Number(normalizedMessage.includes('pokemon')) * 3 +
-      (b.total_rating_count || 0) / 1000
-
-    return bScore - aScore
-  })
+  return simplified
 }
 
 function uniqueById(games) {
@@ -133,10 +72,7 @@ function normalizeRecommendation(recommendation, candidatesById) {
 }
 
 module.exports = {
-  extractSearchTerms,
-  normalizeForTerms,
   normalizeRecommendation,
-  rankCandidates,
   simplifyGame,
   uniqueById,
 }
