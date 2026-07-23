@@ -1,5 +1,6 @@
 const { igdbQuery } = require('../api/api')
 const { filterPrimaryGames } = require('./gameSafety')
+const { distinctiveKeywordIds } = require('./chatSimilarity')
 const {
   escapeSearchTerm,
   normalizeFilter,
@@ -29,6 +30,17 @@ const platformFilters = {
   'xbox series': 169,
   'nintendo switch': 130,
   switch: 130,
+}
+
+const recommendationFields =
+  'id,name,category,summary,storyline,first_release_date,genres.name,platforms.name,themes.name,keywords.name,game_modes.name,player_perspectives.name,age_ratings.rating,total_rating,total_rating_count,hypes,franchise,franchises,collections,version_parent,similar_games'
+
+function relationIds(values) {
+  const relations = Array.isArray(values) ? values : [values]
+
+  return relations
+    .map((relation) => Number(relation?.id ?? relation))
+    .filter((id) => Number.isInteger(id) && id > 0)
 }
 
 async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', releaseYear = 0, sort = 'release_desc' } = {}) {
@@ -120,7 +132,7 @@ async function getRandomRpgGame() {
 async function listRecommendationCandidates({ limit = 30 } = {}) {
   const safeLimit = Math.min(Number(limit || 30), 50)
   const query = `
-    fields id,name,category,summary,first_release_date,genres.name,platforms.name,themes.name,age_ratings.rating,total_rating,total_rating_count,hypes;
+    fields ${recommendationFields};
     where genres = (12) & summary != null;
     sort total_rating_count desc;
     limit ${Math.min(safeLimit * 2, 100)};
@@ -136,7 +148,7 @@ async function searchRecommendationCandidates({ searchTerms = [], limit = 12 } =
 
   for (const term of searchTerms.map(escapeSearchTerm).filter(Boolean).slice(0, 5)) {
     const query = `
-      fields id,name,category,summary,first_release_date,genres.name,platforms.name,themes.name,age_ratings.rating,total_rating,total_rating_count,hypes;
+      fields ${recommendationFields};
       search "${term}";
       where genres = (12) & summary != null;
       limit ${safeLimit};
@@ -152,6 +164,76 @@ async function searchRecommendationCandidates({ searchTerms = [], limit = 12 } =
   }
 
   return results
+}
+
+async function listSimilarRecommendationCandidates({ referenceGames = [], limit = 60 } = {}) {
+  const games = Array.isArray(referenceGames) ? referenceGames.filter(Boolean) : []
+  if (!games.length) return []
+
+  const safeLimit = Math.min(Math.max(Number(limit || 60), 10), 100)
+  const similarGameIds = Array.from(
+    new Set(games.flatMap((game) => relationIds(game.similar_games || []))),
+  ).slice(0, 100)
+  const secondaryGenreIds = Array.from(
+    new Set(games.flatMap((game) => relationIds(game.genres || [])).filter((id) => id !== 12)),
+  ).slice(0, 12)
+  const themeIds = Array.from(
+    new Set(games.flatMap((game) => relationIds(game.themes || []))),
+  ).slice(0, 10)
+  const keywordIds = distinctiveKeywordIds(games, 16)
+  const queries = []
+
+  if (similarGameIds.length) {
+    queries.push(`
+      query games "igdb_similar_games" {
+        fields ${recommendationFields};
+        where genres = (12) & summary != null & id = (${similarGameIds.join(',')});
+        limit ${safeLimit};
+      };
+    `)
+  }
+
+  if (secondaryGenreIds.length) {
+    queries.push(`
+      query games "shared_genres" {
+        fields ${recommendationFields};
+        where genres = (12) & genres = (${secondaryGenreIds.join(',')}) & summary != null;
+        sort total_rating_count desc;
+        limit ${safeLimit};
+      };
+    `)
+  }
+
+  if (keywordIds.length) {
+    queries.push(`
+      query games "shared_keywords" {
+        fields ${recommendationFields};
+        where genres = (12) & keywords = (${keywordIds.join(',')}) & summary != null;
+        sort total_rating_count desc;
+        limit ${safeLimit};
+      };
+    `)
+  }
+
+  if (themeIds.length) {
+    queries.push(`
+      query games "shared_themes" {
+        fields ${recommendationFields};
+        where genres = (12) & themes = (${themeIds.join(',')}) & summary != null;
+        sort total_rating_count desc;
+        limit ${safeLimit};
+      };
+    `)
+  }
+
+  if (!queries.length) return []
+
+  const batches = await igdbQuery('/multiquery', queries.join('\n'))
+  const candidates = Array.isArray(batches)
+    ? batches.flatMap((batch) => (Array.isArray(batch.result) ? batch.result : []))
+    : []
+
+  return filterPrimaryGames(candidates)
 }
 
 async function getGameById(id) {
@@ -205,6 +287,7 @@ module.exports = {
   listSpotlightGames,
   getRandomRpgGame,
   listRecommendationCandidates,
+  listSimilarRecommendationCandidates,
   searchRecommendationCandidates,
   getGameById,
   searchGames,
