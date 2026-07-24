@@ -73,6 +73,10 @@ si les correspondances disponibles sont trop faibles.
 Le backend :
 
 - Analyse la demande utilisateur.
+- Transforme les contraintes négatives comme « pas de fangames » en exclusions au lieu
+  de les utiliser comme termes de recherche.
+- Lorsqu'une licence précise est demandée, utilise les relations de franchise et de
+  collection IGDB pour retrouver ses jeux officiels sans élargir la réponse finale.
 - Distingue les jeux demandés des jeux cités uniquement comme références.
 - Construit un profil du jeu de référence à partir de ses genres secondaires, thèmes,
   mots-clés distinctifs, résumé et histoire.
@@ -84,6 +88,7 @@ Le backend :
 - Exclut les favoris de l'utilisateur si une session est fournie.
 - Exclut les contenus adultes/érotiques.
 - Demande à Mistral de choisir parmi les candidats et lui transmet les ressemblances
-  factuelles ainsi que le contexte narratif disponible.
+  factuelles, le contexte narratif, les franchises, les collections, les studios et les
+  éditeurs disponibles.
 
 Le frontend ne doit pas envoyer tout le catalogue à Mistral.

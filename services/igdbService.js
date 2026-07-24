@@ -1,6 +1,7 @@
 const { igdbQuery } = require('../api/api')
 const { filterPrimaryGames } = require('./gameSafety')
 const { distinctiveKeywordIds } = require('./chatSimilarity')
+const { normalizeGameTitle } = require('./chatRequestUtils')
 const {
   escapeSearchTerm,
   normalizeFilter,
@@ -33,7 +34,7 @@ const platformFilters = {
 }
 
 const recommendationFields =
-  'id,name,category,summary,storyline,first_release_date,genres.name,platforms.name,themes.name,keywords.name,game_modes.name,player_perspectives.name,age_ratings.rating,total_rating,total_rating_count,hypes,franchise,franchises,collections,version_parent,similar_games'
+  'id,name,category,summary,storyline,first_release_date,genres.name,platforms.name,themes.name,keywords.name,game_modes.name,player_perspectives.name,age_ratings.rating,total_rating,total_rating_count,hypes,franchise.name,franchises.name,collection.name,collections.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,version_parent,similar_games'
 
 function relationIds(values) {
   const relations = Array.isArray(values) ? values : [values]
@@ -166,6 +167,85 @@ async function searchRecommendationCandidates({ searchTerms = [], limit = 12 } =
   return results
 }
 
+function namedRelationIds(games, fields, requestedTitles) {
+  const normalizedTitles = requestedTitles.map(normalizeGameTitle).filter(Boolean)
+  const ids = new Set()
+
+  for (const game of games) {
+    for (const field of fields) {
+      const relations = Array.isArray(game[field]) ? game[field] : [game[field]]
+
+      for (const relation of relations) {
+        const relationName = normalizeGameTitle(relation?.name)
+        const relationId = Number(relation?.id)
+        const matchesTitle = normalizedTitles.some(
+          (title) =>
+            relationName === title ||
+            relationName.startsWith(`${title} `),
+        )
+
+        if (matchesTitle && Number.isInteger(relationId) && relationId > 0) {
+          ids.add(relationId)
+        }
+      }
+    }
+  }
+
+  return Array.from(ids)
+}
+
+async function listRequestedLicenseCandidates({
+  requestedTitles = [],
+  seedGames = [],
+  limit = 40,
+} = {}) {
+  if (!requestedTitles.length || !seedGames.length) return []
+
+  const safeLimit = Math.min(Math.max(Number(limit || 40), 10), 60)
+  const franchiseIds = namedRelationIds(
+    seedGames,
+    ['franchise', 'franchises'],
+    requestedTitles,
+  ).slice(0, 12)
+  const collectionIds = namedRelationIds(
+    seedGames,
+    ['collection', 'collections'],
+    requestedTitles,
+  ).slice(0, 12)
+  const queries = []
+
+  if (franchiseIds.length) {
+    queries.push(`
+      query games "requested_franchises" {
+        fields ${recommendationFields};
+        where genres = (12) & franchises = (${franchiseIds.join(',')}) & summary != null;
+        sort total_rating_count desc;
+        limit ${safeLimit};
+      };
+    `)
+  }
+
+  if (collectionIds.length) {
+    queries.push(`
+      query games "requested_collections" {
+        fields ${recommendationFields};
+        where genres = (12) & collections = (${collectionIds.join(',')}) & summary != null;
+        sort total_rating_count desc;
+        limit ${safeLimit};
+      };
+    `)
+  }
+
+  if (!queries.length) return []
+
+  const batches = await igdbQuery('/multiquery', queries.join('\n'))
+  const candidates = Array.isArray(batches)
+    ? batches.flatMap((batch) => (Array.isArray(batch.result) ? batch.result : []))
+    : []
+
+  return filterPrimaryGames(candidates)
+}
+
 async function listSimilarRecommendationCandidates({ referenceGames = [], limit = 60 } = {}) {
   const games = Array.isArray(referenceGames) ? referenceGames.filter(Boolean) : []
   if (!games.length) return []
@@ -287,6 +367,7 @@ module.exports = {
   listSpotlightGames,
   getRandomRpgGame,
   listRecommendationCandidates,
+  listRequestedLicenseCandidates,
   listSimilarRecommendationCandidates,
   searchRecommendationCandidates,
   getGameById,

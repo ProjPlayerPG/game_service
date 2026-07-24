@@ -1,4 +1,5 @@
 const {
+  isLikelyUnofficialGame,
   normalizeRecommendation,
   simplifyGame,
   uniqueById,
@@ -37,8 +38,55 @@ describe('formatage des recommandations', () => {
       game_modes: [],
       player_perspectives: [],
       platforms: ['SNES'],
+      franchises: [],
+      collections: [],
+      developers: [],
+      publishers: [],
       release_year: 1995,
     })
+  })
+
+  it('transmet les informations permettant de vérifier le caractère officiel', () => {
+    expect(
+      simplifyGame({
+        id: 8353,
+        name: 'Pokémon White Version 2',
+        franchises: [{ id: 60, name: 'Pokémon' }],
+        collections: [{ id: 314, name: 'Pokémon' }],
+        involved_companies: [
+          {
+            developer: true,
+            publisher: false,
+            company: { id: 1617, name: 'Game Freak' },
+          },
+          {
+            developer: false,
+            publisher: true,
+            company: { id: 70, name: 'Nintendo' },
+          },
+        ],
+      }),
+    ).toMatchObject({
+      franchises: ['Pokémon'],
+      collections: ['Pokémon'],
+      developers: ['Game Freak'],
+      publishers: ['Nintendo'],
+    })
+  })
+
+  it('détecte les fangames et ROM hacks déclarés dans les données', () => {
+    expect(
+      isLikelyUnofficialGame({
+        name: 'Pokémon Example',
+        summary: 'An unofficial fan-made monster catching game.',
+      }),
+    ).toBe(true)
+    expect(
+      isLikelyUnofficialGame({
+        name: 'Pokémon White Version 2',
+        summary: 'The official sequel developed by Game Freak.',
+      }),
+    ).toBe(false)
   })
 
   it('ajoute uniquement les similitudes factuelles avec le jeu de référence', () => {
