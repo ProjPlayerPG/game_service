@@ -98,6 +98,7 @@ function extractRecommendationConstraints(message) {
     /\b(?:non\s+|pas\s+(?:(?:de|des|un|une)\s+)?)officiels?\b/.test(normalized)
 
   return {
+    communityContentRequested: fanGameMentioned && !fanGameExcluded,
     excludeFanGames: fanGameMentioned && fanGameExcluded,
     officialOnly:
       (officialMentioned && !officialExcluded) || (fanGameMentioned && fanGameExcluded),
