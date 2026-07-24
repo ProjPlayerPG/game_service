@@ -1,9 +1,9 @@
 const {
-  isLikelyUnofficialGame,
   normalizeRecommendation,
   simplifyGame,
   uniqueById,
 } = require('./chatUtils')
+const { isLikelyUnofficialGame } = require('./gameSafety')
 const { buildReferenceProfile } = require('./chatSimilarity')
 
 describe('formatage des recommandations', () => {
@@ -42,6 +42,7 @@ describe('formatage des recommandations', () => {
       collections: [],
       developers: [],
       publishers: [],
+      provenance: 'unverified',
       release_year: 1995,
     })
   })
@@ -71,6 +72,7 @@ describe('formatage des recommandations', () => {
       collections: ['Pokémon'],
       developers: ['Game Freak'],
       publishers: ['Nintendo'],
+      provenance: 'official',
     })
   })
 

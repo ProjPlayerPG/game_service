@@ -20,9 +20,21 @@ Paramètres courants :
 
 ### `GET /api/games/search`
 
-Recherche de jeux pour l'autocomplete du header.
+Recherche de RPG pour l'autocomplete du header et la page catalogue.
 
-Le service exclut les extensions et contenus adultes.
+Le service exige le genre IGDB `Role-playing (RPG)` (`id = 12`) dans la requête puis
+vérifie de nouveau cet identifiant dans les résultats. Il exclut aussi les extensions
+et contenus adultes.
+
+Les résultats sont classés par provenance :
+
+- jeux reliés par IGDB à une franchise ou collection officielle ;
+- jeux dont le statut ne peut pas être confirmé ;
+- fangames, mods, ROM hacks et autres contenus communautaires détectés.
+
+La réponse expose `provenance` avec les valeurs `official`, `unverified` ou `community`
+afin que le frontend affiche clairement ce statut. Un pool interne plus large est
+inspecté pour le classement, sans augmenter le nombre de résultats retournés.
 
 ### `GET /api/games/spotlight`
 
@@ -84,6 +96,10 @@ Le backend :
   concepts spécialisés, y compris parmi des titres moins connus.
 - Classe les candidats selon leurs similarités concrètes ; la popularité ne sert plus
   que de critère secondaire.
+- Vérifie de nouveau que chaque candidat possède le genre IGDB RPG avant l'appel à
+  Mistral.
+- Privilégie les jeux officiels avant les contenus non confirmés ou communautaires,
+  sauf lorsque l'utilisateur demande explicitement un fangame, mod ou ROM hack.
 - Exclut le jeu de référence, ses éditions et les jeux de la même franchise ou collection.
 - Exclut les favoris de l'utilisateur si une session est fournie.
 - Exclut les contenus adultes/érotiques.

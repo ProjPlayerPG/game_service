@@ -1,5 +1,5 @@
 const { referenceSimilarity } = require('./chatSimilarity')
-const { normalizeGameTitle } = require('./chatRequestUtils')
+const { classifyGameProvenance } = require('./gameSafety')
 
 function relationNames(values, limit = 12) {
   return Array.from(
@@ -17,28 +17,6 @@ function involvedCompanyNames(values, role) {
       .filter((entry) => entry?.[role])
       .map((entry) => entry.company),
   )
-}
-
-function isLikelyUnofficialGame(game) {
-  const searchableText = normalizeGameTitle(
-    [
-      game.name,
-      game.summary,
-      game.storyline,
-      ...(game.keywords?.map((keyword) => keyword.name) || []),
-      ...(game.collections?.map((collection) => collection.name) || []),
-    ].join(' '),
-  )
-
-  return [
-    /\bfan ?game\b/,
-    /\bfan ?made\b/,
-    /\bfan ?created\b/,
-    /\bfan ?project\b/,
-    /\brom ?hack\b/,
-    /\bhack ?rom\b/,
-    /\bunofficial\b/,
-  ].some((pattern) => pattern.test(searchableText))
 }
 
 function simplifyGame(game, referenceProfile) {
@@ -59,6 +37,7 @@ function simplifyGame(game, referenceProfile) {
     collections,
     developers: involvedCompanyNames(game.involved_companies, 'developer'),
     publishers: involvedCompanyNames(game.involved_companies, 'publisher'),
+    provenance: classifyGameProvenance(game),
     release_year: game.first_release_date
       ? new Date(game.first_release_date * 1000).getUTCFullYear()
       : null,
@@ -112,7 +91,6 @@ function normalizeRecommendation(recommendation, candidatesById) {
 }
 
 module.exports = {
-  isLikelyUnofficialGame,
   normalizeRecommendation,
   simplifyGame,
   uniqueById,
