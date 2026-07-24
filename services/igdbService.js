@@ -1,5 +1,9 @@
 const { igdbQuery } = require('../api/api')
-const { filterPrimaryGames } = require('./gameSafety')
+const {
+  filterRpgGames,
+  prioritizeOfficialGames,
+  withGameProvenance,
+} = require('./gameSafety')
 const { distinctiveKeywordIds } = require('./chatSimilarity')
 const { normalizeGameTitle } = require('./chatRequestUtils')
 const {
@@ -35,6 +39,9 @@ const platformFilters = {
 
 const recommendationFields =
   'id,name,category,summary,storyline,first_release_date,genres.name,platforms.name,themes.name,keywords.name,game_modes.name,player_perspectives.name,age_ratings.rating,total_rating,total_rating_count,hypes,franchise.name,franchises.name,collection.name,collections.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,version_parent,similar_games'
+const provenanceFields =
+  'franchise.name,franchises.name,collection.name,collections.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name'
+const searchRankingPoolSize = 100
 
 function relationIds(values) {
   const relations = Array.isArray(values) ? values : [values]
@@ -65,16 +72,15 @@ async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', r
   }
 
   const query = `
-    fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating;
+    fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating,${provenanceFields};
     where ${whereParts.join(' & ')};
     sort ${sortClause(sort)};
     limit ${fetchLimit};
   `
 
-  return filterPrimaryGames(await igdbQuery('/games', query)).slice(
-    safeOffset,
-    safeOffset + safeLimit,
-  )
+  return filterRpgGames(await igdbQuery('/games', query))
+    .slice(safeOffset, safeOffset + safeLimit)
+    .map(withGameProvenance)
 }
 
 async function listSpotlightGames({ limit = 6, mode = 'recent' } = {}) {
@@ -101,19 +107,19 @@ async function listSpotlightGames({ limit = 6, mode = 'recent' } = {}) {
     limit ${Math.min(safeLimit * 3, 60)};
   `
 
-  return filterPrimaryGames(await igdbQuery('/games', query)).slice(0, safeLimit)
+  return filterRpgGames(await igdbQuery('/games', query)).slice(0, safeLimit)
 }
 
 async function getRandomRpgGame() {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const offset = Math.floor(Math.random() * 3000)
     const query = `
-      fields id,name,category,summary,themes.name,age_ratings.rating;
+      fields id,name,category,summary,genres.name,themes.name,age_ratings.rating;
       where genres = (12) & cover != null & summary != null;
       limit 5;
       offset ${offset};
     `
-    const data = filterPrimaryGames(await igdbQuery('/games', query))
+    const data = filterRpgGames(await igdbQuery('/games', query))
 
     if (data?.[0]?.id) {
       return data[0]
@@ -121,12 +127,12 @@ async function getRandomRpgGame() {
   }
 
   const fallbackQuery = `
-    fields id,name,category,summary,themes.name,age_ratings.rating;
+    fields id,name,category,summary,genres.name,themes.name,age_ratings.rating;
     where genres = (12) & cover != null;
     sort first_release_date desc;
     limit 10;
   `
-  const fallback = filterPrimaryGames(await igdbQuery('/games', fallbackQuery))
+  const fallback = filterRpgGames(await igdbQuery('/games', fallbackQuery))
   return fallback?.[0] || null
 }
 
@@ -139,7 +145,7 @@ async function listRecommendationCandidates({ limit = 30 } = {}) {
     limit ${Math.min(safeLimit * 2, 100)};
   `
 
-  return filterPrimaryGames(await igdbQuery('/games', query)).slice(0, safeLimit)
+  return filterRpgGames(await igdbQuery('/games', query)).slice(0, safeLimit)
 }
 
 async function searchRecommendationCandidates({ searchTerms = [], limit = 12 } = {}) {
@@ -154,7 +160,7 @@ async function searchRecommendationCandidates({ searchTerms = [], limit = 12 } =
       where genres = (12) & summary != null;
       limit ${safeLimit};
     `
-    const games = filterPrimaryGames(await igdbQuery('/games', query))
+    const games = filterRpgGames(await igdbQuery('/games', query))
 
     for (const game of games) {
       if (!seenIds.has(game.id)) {
@@ -243,7 +249,7 @@ async function listRequestedLicenseCandidates({
     ? batches.flatMap((batch) => (Array.isArray(batch.result) ? batch.result : []))
     : []
 
-  return filterPrimaryGames(candidates)
+  return filterRpgGames(candidates)
 }
 
 async function listSimilarRecommendationCandidates({ referenceGames = [], limit = 60 } = {}) {
@@ -313,7 +319,7 @@ async function listSimilarRecommendationCandidates({ referenceGames = [], limit 
     ? batches.flatMap((batch) => (Array.isArray(batch.result) ? batch.result : []))
     : []
 
-  return filterPrimaryGames(candidates)
+  return filterRpgGames(candidates)
 }
 
 async function getGameById(id) {
@@ -325,18 +331,18 @@ async function getGameById(id) {
   }
 
   const query = `
-    fields id,name,slug,category,first_release_date,cover.url,genres.name,platforms.name,summary,storyline,parent_game.id,parent_game.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,dlcs.id,dlcs.name,dlcs.cover.url,expansions.id,expansions.name,expansions.cover.url;
+    fields id,name,slug,category,first_release_date,cover.url,genres.name,platforms.name,summary,storyline,franchise.name,franchises.name,collection.name,collections.name,parent_game.id,parent_game.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,dlcs.id,dlcs.name,dlcs.cover.url,expansions.id,expansions.name,expansions.cover.url;
     where id = ${gameId};
     limit 1;
   `
 
   const data = await igdbQuery('/games', query)
-  return data?.[0] || null
+  return data?.[0] ? withGameProvenance(data[0]) : null
 }
 
 
 /**
- * Recherche IGDB (tous jeux) pour autocomplete
+ * Recherche IGDB de RPG pour l'autocomplete et le catalogue
  * GET /api/games/search?q=zelda&limit=10&offset=0
  */
 async function searchGames({ q, limit = 10, offset = 0 } = {}) {
@@ -349,17 +355,21 @@ async function searchGames({ q, limit = 10, offset = 0 } = {}) {
     maxLimit: 20,
   })
   const safeTerm = escapeSearchTerm(term)
+  const rankingPoolLimit = Math.min(
+    Math.max(fetchLimit, searchRankingPoolSize),
+    500,
+  )
 
   const query = `
-    fields id,name,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating;
+    fields id,name,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating,${provenanceFields};
     search "${safeTerm}";
-    limit ${fetchLimit};
+    where genres = (12) & version_parent = null;
+    limit ${rankingPoolLimit};
   `
 
-  return filterPrimaryGames(await igdbQuery('/games', query)).slice(
-    safeOffset,
-    safeOffset + safeLimit,
-  )
+  return prioritizeOfficialGames(filterRpgGames(await igdbQuery('/games', query)))
+    .slice(safeOffset, safeOffset + safeLimit)
+    .map(withGameProvenance)
 }
 
 module.exports = {

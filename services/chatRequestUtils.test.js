@@ -28,6 +28,7 @@ describe('analyse des demandes de recommandation', () => {
     const message = 'Je veux des jeux Pokemon qui ne sont pas des fangames'
 
     expect(extractRecommendationConstraints(message)).toEqual({
+      communityContentRequested: false,
       excludeFanGames: true,
       officialOnly: true,
     })
@@ -39,6 +40,7 @@ describe('analyse des demandes de recommandation', () => {
     const message = 'Je cherche des fangames Pokémon'
 
     expect(extractRecommendationConstraints(message)).toEqual({
+      communityContentRequested: true,
       excludeFanGames: false,
       officialOnly: false,
     })
@@ -47,10 +49,12 @@ describe('analyse des demandes de recommandation', () => {
 
   it('reconnaît aussi une demande formulée avec le mot officiel', () => {
     expect(extractRecommendationConstraints('Je veux des jeux Pokémon officiels')).toEqual({
+      communityContentRequested: false,
       excludeFanGames: false,
       officialOnly: true,
     })
     expect(extractRecommendationConstraints('Je cherche des jeux non officiels')).toEqual({
+      communityContentRequested: false,
       excludeFanGames: false,
       officialOnly: false,
     })

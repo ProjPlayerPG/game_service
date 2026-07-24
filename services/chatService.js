@@ -6,7 +6,12 @@ const {
   searchRecommendationCandidates,
 } = require('./igdbService')
 const { getFavoriteGameIds, getUserFromToken } = require('./supabaseRestService')
-const { isAdultOrEroticGame } = require('./gameSafety')
+const {
+  isAdultOrEroticGame,
+  isLikelyUnofficialGame,
+  isRpgGame,
+  prioritizeOfficialGames,
+} = require('./gameSafety')
 const {
   extractRecommendationConstraints,
   extractReferenceTitles,
@@ -21,7 +26,6 @@ const {
   rankCandidates,
 } = require('./chatSimilarity')
 const {
-  isLikelyUnofficialGame,
   normalizeRecommendation,
   simplifyGame,
   uniqueById,
@@ -67,7 +71,7 @@ async function recommendGames({ message, token }) {
       ? []
       : await listRecommendationCandidates({ limit: 25 })
   const requestedLicenseGameIds = new Set(requestedLicenseGames.map((game) => game.id))
-  const candidateGames = rankCandidates(
+  const eligibleCandidateGames = rankCandidates(
     uniqueById([
       ...requestedLicenseGames,
       ...targetedGames,
@@ -79,6 +83,7 @@ async function recommendGames({ message, token }) {
   )
     .filter((game) => !isExcludedReferenceGame(game, referenceExclusion))
     .filter((game) => hasReferenceSimilarity(game, referenceProfile))
+    .filter(isRpgGame)
     .filter((game) => !constraints.excludeFanGames || !isLikelyUnofficialGame(game))
     .filter(
       (game) =>
@@ -88,7 +93,11 @@ async function recommendGames({ message, token }) {
     )
     .filter((game) => !isAdultOrEroticGame(game))
     .filter((game) => !favoriteIds.includes(game.id))
-    .slice(0, 18)
+  const candidateGames = (
+    constraints.communityContentRequested
+      ? eligibleCandidateGames
+      : prioritizeOfficialGames(eligibleCandidateGames)
+  ).slice(0, 18)
   const candidates = candidateGames.map((game) => simplifyGame(game, referenceProfile))
   const candidatesById = new Map(candidateGames.map((game) => [game.id, game]))
   const referenceContext = referenceGames.map((game) => simplifyGame(game))
@@ -107,7 +116,7 @@ async function recommendGames({ message, token }) {
       {
         role: 'system',
         content:
-          'You are PlayerPG RPG advisor. Recommend only games from the provided candidates by id. Never invent games. Respect all explicit constraints. When constraints.officialOnly is true, use the provided franchise, collection, developer and publisher metadata and never recommend a fan game, unofficial game, ROM hack or mod. Games listed as references are comparison context only: never recommend a reference game, another edition of it, or a game from the same franchise or collection. Prioritize concrete similarities shown in similarity_with_reference and the factual summaries or storylines. Popularity is not evidence of similarity. Never claim a gameplay mechanic unless it appears in the provided data. When at least 3 valid candidates satisfy the request, return between 3 and 5 distinct recommendations. Return fewer only when fewer valid candidates exist. Never recommend erotic, pornographic, NSFW, sexually explicit or adults-only games. Do not recommend favorite ids. Answer in French and only valid JSON.',
+          'You are PlayerPG RPG advisor. Recommend only games from the provided candidates by id. Never invent games. Respect all explicit constraints. Prefer candidates whose provenance is official over unverified or community content unless constraints.communityContentRequested is true. When constraints.officialOnly is true, never recommend a fan game, unofficial game, ROM hack or mod. Games listed as references are comparison context only: never recommend a reference game, another edition of it, or a game from the same franchise or collection. Prioritize concrete similarities shown in similarity_with_reference and the factual summaries or storylines. Popularity is not evidence of similarity. Never claim a gameplay mechanic unless it appears in the provided data. When at least 3 valid candidates satisfy the request, return between 3 and 5 distinct recommendations. Return fewer only when fewer valid candidates exist. Never recommend erotic, pornographic, NSFW, sexually explicit or adults-only games. Do not recommend favorite ids. Answer in French and only valid JSON.',
       },
       {
         role: 'user',
