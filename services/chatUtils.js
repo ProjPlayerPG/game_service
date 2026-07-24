@@ -1,13 +1,49 @@
 const { referenceSimilarity } = require('./chatSimilarity')
+const { normalizeGameTitle } = require('./chatRequestUtils')
 
 function relationNames(values, limit = 12) {
-  return (Array.isArray(values) ? values : [])
-    .map((relation) => relation?.name)
-    .filter(Boolean)
-    .slice(0, limit)
+  return Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((relation) => relation?.name)
+        .filter(Boolean),
+    ),
+  ).slice(0, limit)
+}
+
+function involvedCompanyNames(values, role) {
+  return relationNames(
+    (Array.isArray(values) ? values : [])
+      .filter((entry) => entry?.[role])
+      .map((entry) => entry.company),
+  )
+}
+
+function isLikelyUnofficialGame(game) {
+  const searchableText = normalizeGameTitle(
+    [
+      game.name,
+      game.summary,
+      game.storyline,
+      ...(game.keywords?.map((keyword) => keyword.name) || []),
+      ...(game.collections?.map((collection) => collection.name) || []),
+    ].join(' '),
+  )
+
+  return [
+    /\bfan ?game\b/,
+    /\bfan ?made\b/,
+    /\bfan ?created\b/,
+    /\bfan ?project\b/,
+    /\brom ?hack\b/,
+    /\bhack ?rom\b/,
+    /\bunofficial\b/,
+  ].some((pattern) => pattern.test(searchableText))
 }
 
 function simplifyGame(game, referenceProfile) {
+  const franchises = relationNames([game.franchise, ...(game.franchises || [])])
+  const collections = relationNames([game.collection, ...(game.collections || [])])
   const simplified = {
     id: game.id,
     name: game.name,
@@ -19,6 +55,10 @@ function simplifyGame(game, referenceProfile) {
     game_modes: relationNames(game.game_modes),
     player_perspectives: relationNames(game.player_perspectives),
     platforms: relationNames(game.platforms),
+    franchises,
+    collections,
+    developers: involvedCompanyNames(game.involved_companies, 'developer'),
+    publishers: involvedCompanyNames(game.involved_companies, 'publisher'),
     release_year: game.first_release_date
       ? new Date(game.first_release_date * 1000).getUTCFullYear()
       : null,
@@ -72,6 +112,7 @@ function normalizeRecommendation(recommendation, candidatesById) {
 }
 
 module.exports = {
+  isLikelyUnofficialGame,
   normalizeRecommendation,
   simplifyGame,
   uniqueById,
