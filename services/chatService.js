@@ -1,5 +1,6 @@
 const { askMistral, extractJsonObject } = require('./mistralService')
 const {
+  getRecommendationGamesByIds,
   listRecommendationCandidates,
   listRequestedLicenseCandidates,
   listSimilarRecommendationCandidates,
@@ -17,6 +18,7 @@ const {
   extractReferenceTitles,
   extractRequestedFranchiseTitles,
   extractSearchTerms,
+  recommendationPromptCompletion,
 } = require('./chatRequestUtils')
 const {
   buildReferenceProfile,
@@ -33,15 +35,26 @@ const {
 
 async function recommendGames({ message, token }) {
   const cleanMessage = String(message || '').trim()
+  const completion = recommendationPromptCompletion(cleanMessage)
 
-  if (cleanMessage.length < 3) {
-    const err = new Error('Message is too short')
+  if (completion === null) {
+    const err = new Error('La demande doit commencer par « Je veux ».')
+    err.status = 400
+    throw err
+  }
+
+  if (completion.length < 3) {
+    const err = new Error('Complète la phrase « Je veux » pour décrire le RPG recherché.')
     err.status = 400
     throw err
   }
 
   const user = await getUserFromToken(token)
   const favoriteIds = user ? await getFavoriteGameIds(user.id) : []
+  const favoriteGames = favoriteIds.length
+    ? await getRecommendationGamesByIds({ gameIds: favoriteIds, limit: 12 })
+    : []
+  const preferenceProfile = buildReferenceProfile(favoriteGames)
   const referenceTitles = extractReferenceTitles(cleanMessage)
   const constraints = extractRecommendationConstraints(cleanMessage)
   const requestedFranchiseTitles = extractRequestedFranchiseTitles(cleanMessage).filter(
@@ -63,11 +76,17 @@ async function recommendGames({ message, token }) {
   const similarGames = referenceGames.length
     ? await listSimilarRecommendationCandidates({ referenceGames, limit: 60 })
     : []
+  const favoriteSimilarGames = favoriteGames.length
+    ? await listSimilarRecommendationCandidates({ referenceGames: favoriteGames, limit: 40 })
+    : []
   const eligibleTargetedGames = targetedGames.filter(
     (game) => !isExcludedReferenceGame(game, referenceExclusion),
   )
   const fallbackGames =
-    referenceGames.length || requestedLicenseGames.length || eligibleTargetedGames.length >= 8
+    referenceGames.length ||
+    requestedLicenseGames.length ||
+    eligibleTargetedGames.length >= 8 ||
+    favoriteSimilarGames.length
       ? []
       : await listRecommendationCandidates({ limit: 25 })
   const requestedLicenseGameIds = new Set(requestedLicenseGames.map((game) => game.id))
@@ -76,10 +95,11 @@ async function recommendGames({ message, token }) {
       ...requestedLicenseGames,
       ...targetedGames,
       ...similarGames,
+      ...favoriteSimilarGames,
       ...fallbackGames,
     ]),
     cleanMessage,
-    { referenceProfile },
+    { referenceProfile, preferenceProfile },
   )
     .filter((game) => !isExcludedReferenceGame(game, referenceExclusion))
     .filter((game) => hasReferenceSimilarity(game, referenceProfile))
@@ -97,8 +117,10 @@ async function recommendGames({ message, token }) {
     constraints.communityContentRequested
       ? eligibleCandidateGames
       : prioritizeOfficialGames(eligibleCandidateGames)
-  ).slice(0, 18)
-  const candidates = candidateGames.map((game) => simplifyGame(game, referenceProfile))
+  ).slice(0, 12)
+  const candidates = candidateGames.map((game) =>
+    simplifyGame(game, referenceProfile, preferenceProfile),
+  )
   const candidatesById = new Map(candidateGames.map((game) => [game.id, game]))
   const referenceContext = referenceGames.map((game) => simplifyGame(game))
 
@@ -111,12 +133,13 @@ async function recommendGames({ message, token }) {
 
   const content = await askMistral({
     temperature: 0.15,
+    maxTokens: 500,
     responseFormat: { type: 'json_object' },
     messages: [
       {
         role: 'system',
         content:
-          'You are PlayerPG RPG advisor. Recommend only games from the provided candidates by id. Never invent games. Respect all explicit constraints. Prefer candidates whose provenance is official over unverified or community content unless constraints.communityContentRequested is true. When constraints.officialOnly is true, never recommend a fan game, unofficial game, ROM hack or mod. Games listed as references are comparison context only: never recommend a reference game, another edition of it, or a game from the same franchise or collection. Prioritize concrete similarities shown in similarity_with_reference and the factual summaries or storylines. Popularity is not evidence of similarity. Never claim a gameplay mechanic unless it appears in the provided data. When at least 3 valid candidates satisfy the request, return between 3 and 5 distinct recommendations. Return fewer only when fewer valid candidates exist. Never recommend erotic, pornographic, NSFW, sexually explicit or adults-only games. Do not recommend favorite ids. Answer in French and only valid JSON.',
+          'You are PlayerPG RPG advisor. Recommend only games from the provided candidates by id. Never invent games. Respect all explicit constraints. Prefer candidates whose provenance is official over unverified or community content unless constraints.communityContentRequested is true. When constraints.officialOnly is true, never recommend a fan game, unofficial game, ROM hack or mod. Games listed as references are comparison context only: never recommend a reference game, another edition of it, or a game from the same franchise or collection. Prioritize concrete similarities shown in similarity_with_reference and the factual summaries or storylines. Treat similarity_with_favorites as a soft taste signal and tiebreaker only: the current user request always wins, and recommendations should still allow discovery. Popularity is not evidence of similarity. Never claim a gameplay mechanic unless it appears in the provided data. When at least 3 valid candidates satisfy the request, return between 3 and 5 distinct recommendations. Return fewer only when fewer valid candidates exist. Never recommend erotic, pornographic, NSFW, sexually explicit or adults-only games. Do not recommend favorite ids. Answer in French and only valid JSON.',
       },
       {
         role: 'user',
@@ -129,6 +152,10 @@ async function recommendGames({ message, token }) {
           forbidden_reference_titles: referenceTitles,
           forbidden_reference_game_ids: Array.from(referenceExclusion.gameIds),
           forbidden_favorite_ids: favoriteIds,
+          favorite_games_used_as_taste_signals: favoriteGames.map((game) => ({
+            id: game.id,
+            name: game.name,
+          })),
           candidates,
           expected_shape: {
             recommendations: [

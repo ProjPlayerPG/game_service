@@ -3,10 +3,20 @@ const {
   extractReferenceTitles,
   extractRequestedFranchiseTitles,
   extractSearchTerms,
+  recommendationPromptCompletion,
   referenceTitleMatchesGameName,
 } = require('./chatRequestUtils')
 
 describe('analyse des demandes de recommandation', () => {
+  it('accepte uniquement une demande qui commence par Je veux', () => {
+    expect(recommendationPromptCompletion('Je veux un RPG tactique')).toBe('un RPG tactique')
+    expect(recommendationPromptCompletion('  je veux explorer un monde ouvert  ')).toBe(
+      'explorer un monde ouvert',
+    )
+    expect(recommendationPromptCompletion('Je cherche un RPG tactique')).toBeNull()
+    expect(recommendationPromptCompletion('Un RPG tactique')).toBeNull()
+  })
+
   it('retire les mots vides et reconnaît une demande tactique', () => {
     const terms = extractSearchTerms('Je veux un RPG tactique avec une bonne histoire')
 

@@ -12,7 +12,7 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 
 MISTRAL_API_KEY=
-MISTRAL_MODEL=mistral-small-latest
+MISTRAL_MODEL=ministral-14b-2512
 
 IGDB_CACHE_TTL_MS=600000
 IGDB_CACHE_MAX_ENTRIES=200
@@ -40,7 +40,7 @@ CORS_ORIGINS=http://localhost:3000
 : clé API Mistral pour traduire et recommander.
 
 `MISTRAL_MODEL`
-: modèle Mistral utilisé. Valeur par défaut : `mistral-small-latest`.
+: modèle Mistral utilisé. Valeur par défaut : `ministral-14b-2512`.
 
 `IGDB_CACHE_TTL_MS`
 : durée de vie du cache IGDB en millisecondes.

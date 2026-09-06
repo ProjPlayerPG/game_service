@@ -148,6 +148,26 @@ async function listRecommendationCandidates({ limit = 30 } = {}) {
   return filterRpgGames(await igdbQuery('/games', query)).slice(0, safeLimit)
 }
 
+async function getRecommendationGamesByIds({ gameIds = [], limit = 12 } = {}) {
+  const safeIds = Array.from(
+    new Set(
+      (Array.isArray(gameIds) ? gameIds : [])
+        .map(Number)
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ).slice(0, Math.min(Math.max(Number(limit || 12), 1), 20))
+
+  if (!safeIds.length) return []
+
+  const query = `
+    fields ${recommendationFields};
+    where genres = (12) & id = (${safeIds.join(',')}) & summary != null;
+    limit ${safeIds.length};
+  `
+
+  return filterRpgGames(await igdbQuery('/games', query))
+}
+
 async function searchRecommendationCandidates({ searchTerms = [], limit = 12 } = {}) {
   const safeLimit = Math.min(Number(limit || 12), 20)
   const results = []
@@ -377,6 +397,7 @@ module.exports = {
   listSpotlightGames,
   getRandomRpgGame,
   listRecommendationCandidates,
+  getRecommendationGamesByIds,
   listRequestedLicenseCandidates,
   listSimilarRecommendationCandidates,
   searchRecommendationCandidates,

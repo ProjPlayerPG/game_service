@@ -259,7 +259,7 @@ function hasReferenceSimilarity(game, profile) {
   )
 }
 
-function rankCandidates(games, message, { referenceProfile } = {}) {
+function rankCandidates(games, message, { referenceProfile, preferenceProfile } = {}) {
   const normalizedMessage = normalizeForTerms(message)
 
   return [...games].sort((a, b) => {
@@ -273,8 +273,15 @@ function rankCandidates(games, message, { referenceProfile } = {}) {
     const bReferenceScore = referenceProfile?.hasReferenceGames
       ? referenceSimilarity(b, referenceProfile).score
       : 0
+    const aPreferenceScore = preferenceProfile?.hasReferenceGames
+      ? Math.min(referenceSimilarity(a, preferenceProfile).score, 12) * 0.35
+      : 0
+    const bPreferenceScore = preferenceProfile?.hasReferenceGames
+      ? Math.min(referenceSimilarity(b, preferenceProfile).score, 12) * 0.35
+      : 0
     const aScore =
       aReferenceScore +
+      aPreferenceScore +
       Number(normalizedMessage.includes(aName)) * 5 +
       Number(
         aName
@@ -286,6 +293,7 @@ function rankCandidates(games, message, { referenceProfile } = {}) {
       Math.log10(1 + (a.total_rating_count || 0)) * 0.2
     const bScore =
       bReferenceScore +
+      bPreferenceScore +
       Number(normalizedMessage.includes(bName)) * 5 +
       Number(
         bName
