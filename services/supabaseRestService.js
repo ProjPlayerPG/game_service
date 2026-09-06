@@ -89,7 +89,7 @@ async function getFavoriteGameIds(userId) {
 
   const { url } = supabaseConfig()
   const response = await fetch(
-    `${url}/rest/v1/favorites?user_id=eq.${userId}&select=igdb_game_id`,
+    `${url}/rest/v1/favorites?user_id=eq.${userId}&select=igdb_game_id&order=created_at.desc`,
     {
       headers: serviceHeaders(),
     },
