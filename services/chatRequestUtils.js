@@ -61,6 +61,15 @@ function normalizeGameTitle(value) {
     .trim()
 }
 
+function recommendationPromptCompletion(message) {
+  const cleanMessage = String(message || '').trim()
+  const prefixMatch = cleanMessage.match(/^je\s+veux(?:\s|$)/i)
+
+  if (!prefixMatch) return null
+
+  return cleanMessage.slice(prefixMatch[0].length).trim()
+}
+
 function cleanReferenceTitle(value) {
   return String(value || '')
     .trim()
@@ -242,5 +251,6 @@ module.exports = {
   extractSearchTerms,
   normalizeForTerms,
   normalizeGameTitle,
+  recommendationPromptCompletion,
   referenceTitleMatchesGameName,
 }

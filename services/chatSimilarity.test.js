@@ -170,4 +170,45 @@ describe('similarité des recommandations', () => {
     expect(hasReferenceSimilarity(cassetteBeasts, profile)).toBe(true)
     expect(hasReferenceSimilarity(undertale, profile)).toBe(false)
   })
+
+  it('utilise les favoris comme préférence légère sans dépasser une demande explicite', () => {
+    const favoriteProfile = buildReferenceProfile([
+      {
+        id: 99,
+        name: 'Favori tactique',
+        genres: [
+          { id: 12, name: 'Role-playing (RPG)' },
+          { id: 24, name: 'Tactical' },
+        ],
+      },
+    ])
+    const tacticalGame = {
+      id: 1,
+      name: 'Tactics Journey',
+      summary: '',
+      genres: [
+        { id: 12, name: 'Role-playing (RPG)' },
+        { id: 24, name: 'Tactical' },
+      ],
+      total_rating_count: 10,
+    }
+    const requestedGame = {
+      id: 2,
+      name: 'Dragon Quest',
+      summary: '',
+      genres: [{ id: 12, name: 'Role-playing (RPG)' }],
+      total_rating_count: 10,
+    }
+
+    expect(
+      rankCandidates([requestedGame, tacticalGame], 'Je veux une nouvelle aventure', {
+        preferenceProfile: favoriteProfile,
+      })[0].id,
+    ).toBe(1)
+    expect(
+      rankCandidates([tacticalGame, requestedGame], 'Je veux Dragon Quest', {
+        preferenceProfile: favoriteProfile,
+      })[0].id,
+    ).toBe(2)
+  })
 })

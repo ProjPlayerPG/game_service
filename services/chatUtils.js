@@ -19,14 +19,42 @@ function involvedCompanyNames(values, role) {
   )
 }
 
-function simplifyGame(game, referenceProfile) {
+function compactText(value, maxLength) {
+  const text = String(value || '').trim()
+  if (text.length <= maxLength) return text
+
+  const shortened = text.slice(0, maxLength).replace(/\s+\S*$/, '').trim()
+  return `${shortened || text.slice(0, maxLength).trim()}…`
+}
+
+function similarityDetails(game, profile) {
+  const similarity = referenceSimilarity(game, profile)
+
+  return {
+    listed_as_similar_by_igdb: similarity.isSimilarGame,
+    shared_secondary_genres: relationNames(game.genres).filter((name, index) =>
+      similarity.sharedGenreIndexes.has(index),
+    ),
+    shared_themes: relationNames(game.themes).filter((name, index) =>
+      similarity.sharedThemeIndexes.has(index),
+    ),
+    shared_keywords: relationNames(game.keywords).filter((name, index) =>
+      similarity.sharedKeywordIndexes.has(index),
+    ),
+    shared_game_modes: relationNames(game.game_modes).filter((name, index) =>
+      similarity.sharedGameModeIndexes.has(index),
+    ),
+  }
+}
+
+function simplifyGame(game, referenceProfile, preferenceProfile) {
   const franchises = relationNames([game.franchise, ...(game.franchises || [])])
   const collections = relationNames([game.collection, ...(game.collections || [])])
   const simplified = {
     id: game.id,
     name: game.name,
-    summary: game.summary || '',
-    storyline: game.storyline || '',
+    summary: compactText(game.summary, 650),
+    storyline: compactText(game.storyline, 420),
     genres: relationNames(game.genres),
     themes: relationNames(game.themes),
     keywords: relationNames(game.keywords),
@@ -44,22 +72,11 @@ function simplifyGame(game, referenceProfile) {
   }
 
   if (referenceProfile?.hasReferenceGames) {
-    const similarity = referenceSimilarity(game, referenceProfile)
-    simplified.similarity_with_reference = {
-      listed_as_similar_by_igdb: similarity.isSimilarGame,
-      shared_secondary_genres: relationNames(game.genres).filter((name, index) =>
-        similarity.sharedGenreIndexes.has(index),
-      ),
-      shared_themes: relationNames(game.themes).filter((name, index) =>
-        similarity.sharedThemeIndexes.has(index),
-      ),
-      shared_keywords: relationNames(game.keywords).filter((name, index) =>
-        similarity.sharedKeywordIndexes.has(index),
-      ),
-      shared_game_modes: relationNames(game.game_modes).filter((name, index) =>
-        similarity.sharedGameModeIndexes.has(index),
-      ),
-    }
+    simplified.similarity_with_reference = similarityDetails(game, referenceProfile)
+  }
+
+  if (preferenceProfile?.hasReferenceGames) {
+    simplified.similarity_with_favorites = similarityDetails(game, preferenceProfile)
   }
 
   return simplified
