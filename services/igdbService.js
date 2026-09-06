@@ -10,6 +10,7 @@ const {
   escapeSearchTerm,
   normalizeFilter,
   paginationWindow,
+  positiveIntegerFilter,
   sortClause,
   todayUtcTimestamp,
   yearRange,
@@ -43,6 +44,49 @@ const provenanceFields =
   'franchise.name,franchises.name,collection.name,collections.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name'
 const searchRankingPoolSize = 100
 
+function catalogWhereParts({
+  tag = '',
+  platform = '',
+  platformId = 0,
+  companyId = 0,
+  companyRole = '',
+  releaseYear = 0,
+} = {}) {
+  const tagId = genreFilters[normalizeFilter(tag)]
+  const selectedPlatformId = positiveIntegerFilter(platformId) || platformFilters[normalizeFilter(platform)]
+  const selectedCompanyId = positiveIntegerFilter(companyId)
+  const selectedCompanyRole = ['developer', 'publisher'].includes(normalizeFilter(companyRole))
+    ? normalizeFilter(companyRole)
+    : ''
+  const releaseRange = yearRange(releaseYear)
+  const whereParts = [
+    'genres = (12)',
+    'version_parent = null',
+  ]
+
+  if (tagId && tagId !== 12) {
+    whereParts.push(`genres = (${tagId})`)
+  }
+
+  if (selectedPlatformId) {
+    whereParts.push(`platforms = (${selectedPlatformId})`)
+  }
+
+  if (selectedCompanyId) {
+    whereParts.push(`involved_companies.company = (${selectedCompanyId})`)
+    if (selectedCompanyRole) {
+      whereParts.push(`involved_companies.${selectedCompanyRole} = true`)
+    }
+  }
+
+  if (releaseRange) {
+    whereParts.push(`first_release_date >= ${releaseRange.start}`)
+    whereParts.push(`first_release_date < ${releaseRange.end}`)
+  }
+
+  return whereParts
+}
+
 function relationIds(values) {
   const relations = Array.isArray(values) ? values : [values]
 
@@ -51,36 +95,52 @@ function relationIds(values) {
     .filter((id) => Number.isInteger(id) && id > 0)
 }
 
-async function listRpgGames({ limit = 10, offset = 0, tag = '', platform = '', releaseYear = 0, sort = 'release_desc' } = {}) {
-  const { safeLimit, safeOffset, fetchLimit } = paginationWindow(limit, offset)
-  const tagId = genreFilters[normalizeFilter(tag)]
-  const platformId = platformFilters[normalizeFilter(platform)]
-  const releaseRange = yearRange(releaseYear)
-  const whereParts = ['genres = (12)']
-
-  if (tagId && tagId !== 12) {
-    whereParts.push(`genres = (${tagId})`)
-  }
-
-  if (platformId) {
-    whereParts.push(`platforms = (${platformId})`)
-  }
-
-  if (releaseRange) {
-    whereParts.push(`first_release_date >= ${releaseRange.start}`)
-    whereParts.push(`first_release_date < ${releaseRange.end}`)
-  }
+async function listRpgGames({
+  limit = 10,
+  offset = 0,
+  tag = '',
+  platform = '',
+  platformId = 0,
+  companyId = 0,
+  companyRole = '',
+  releaseYear = 0,
+  sort = 'release_desc',
+} = {}) {
+  const { safeLimit, safeOffset } = paginationWindow(limit, offset)
+  const whereParts = catalogWhereParts({
+    tag,
+    platform,
+    platformId,
+    companyId,
+    companyRole,
+    releaseYear,
+  })
 
   const query = `
     fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating,${provenanceFields};
     where ${whereParts.join(' & ')};
     sort ${sortClause(sort)};
-    limit ${fetchLimit};
+    limit ${safeLimit};
+    offset ${safeOffset};
   `
 
   return filterRpgGames(await igdbQuery('/games', query))
-    .slice(safeOffset, safeOffset + safeLimit)
     .map(withGameProvenance)
+}
+
+async function countRpgGames({ q = '', ...filters } = {}) {
+  const term = String(q || '').trim()
+  if (q && term.length < 2) return 0
+
+  const searchClause = term ? `search "${escapeSearchTerm(term)}";` : ''
+  const query = `
+    ${searchClause}
+    where ${catalogWhereParts(filters).join(' & ')};
+  `
+  const result = await igdbQuery('/games/count', query)
+  const count = positiveIntegerFilter(result?.count)
+
+  return term ? Math.min(count, 500) : count
 }
 
 async function listSpotlightGames({ limit = 6, mode = 'recent' } = {}) {
@@ -351,7 +411,7 @@ async function getGameById(id) {
   }
 
   const query = `
-    fields id,name,slug,category,first_release_date,cover.url,genres.name,platforms.name,summary,storyline,franchise.name,franchises.name,collection.name,collections.name,parent_game.id,parent_game.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,dlcs.id,dlcs.name,dlcs.cover.url,expansions.id,expansions.name,expansions.cover.url;
+    fields id,name,slug,category,first_release_date,cover.url,genres.name,platforms.name,summary,storyline,franchise.name,franchises.name,collection.name,collections.name,parent_game.id,parent_game.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,videos.name,videos.video_id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,dlcs.id,dlcs.name,dlcs.cover.url,expansions.id,expansions.name,expansions.cover.url;
     where id = ${gameId};
     limit 1;
   `
@@ -393,6 +453,7 @@ async function searchGames({ q, limit = 10, offset = 0 } = {}) {
 }
 
 module.exports = {
+  countRpgGames,
   listRpgGames,
   listSpotlightGames,
   getRandomRpgGame,

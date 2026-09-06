@@ -15,6 +15,8 @@ Paramètres courants :
 - `page`
 - `tag`
 - `platform`
+- `platformId` pour filtrer depuis une plateforme présente sur une fiche
+- `companyId` et `companyRole` (`developer` ou `publisher`) pour filtrer depuis un studio ou un éditeur
 - `year`
 - `sort`
 
@@ -35,6 +37,11 @@ Les résultats sont classés par provenance :
 La réponse expose `provenance` avec les valeurs `official`, `unverified` ou `community`
 afin que le frontend affiche clairement ce statut. Un pool interne plus large est
 inspecté pour le classement, sans augmenter le nombre de résultats retournés.
+
+### `GET /api/games/count`
+
+Retourne le nombre de jeux correspondant aux filtres du catalogue ou à une recherche,
+afin de calculer le nombre maximal de pages.
 
 ### `GET /api/games/spotlight`
 
@@ -62,6 +69,7 @@ Retourne une fiche détaillée :
 - plateformes
 - studio
 - éditeur
+- trailers YouTube et captures d’écran fournis par IGDB
 - extensions liées
 - jeu de base si la fiche est une extension
 

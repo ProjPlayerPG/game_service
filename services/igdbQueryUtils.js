@@ -2,6 +2,11 @@ function normalizeFilter(value) {
   return String(value || '').trim().toLowerCase()
 }
 
+function positiveIntegerFilter(value) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0
+}
+
 function sortClause(value) {
   switch (normalizeFilter(value)) {
     case 'name_asc':
@@ -58,6 +63,7 @@ module.exports = {
   escapeSearchTerm,
   normalizeFilter,
   paginationWindow,
+  positiveIntegerFilter,
   sortClause,
   todayUtcTimestamp,
   yearRange,
