@@ -2,6 +2,7 @@ const {
   escapeSearchTerm,
   normalizeFilter,
   paginationWindow,
+  positiveIntegerFilter,
   sortClause,
   yearRange,
 } = require('./igdbQueryUtils')
@@ -10,6 +11,17 @@ describe('construction des requêtes IGDB', () => {
   it('normalise les filtres texte', () => {
     expect(normalizeFilter('  PlayStation 5 ')).toBe('playstation 5')
     expect(normalizeFilter()).toBe('')
+  })
+
+  it.each([
+    [48, 48],
+    ['101', 101],
+    [0, 0],
+    [-2, 0],
+    ['2.5', 0],
+    ['invalide', 0],
+  ])('sécurise un identifiant de filtre %s', (input, expected) => {
+    expect(positiveIntegerFilter(input)).toBe(expected)
   })
 
   it.each([
