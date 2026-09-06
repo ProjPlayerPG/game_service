@@ -1,5 +1,5 @@
 const express = require('express')
-const { listRpgGames } = require('../services/igdbService')
+const { countRpgGames, listRpgGames } = require('../services/igdbService')
 const { getGameById } = require('../services/igdbService')
 const { searchGames } = require('../services/igdbService')
 const { listSpotlightGames } = require('../services/igdbService')
@@ -14,10 +14,23 @@ router.get('/', async (req, res) => {
     const offset = Number(req.query.offset || 0)
     const tag = String(req.query.tag || '')
     const platform = String(req.query.platform || '')
+    const platformId = Number(req.query.platformId || 0)
+    const companyId = Number(req.query.companyId || 0)
+    const companyRole = String(req.query.companyRole || '')
     const releaseYear = Number(req.query.releaseYear || 0)
     const sort = String(req.query.sort || 'release_desc')
 
-    const games = await listRpgGames({ limit, offset, tag, platform, releaseYear, sort })
+    const games = await listRpgGames({
+      limit,
+      offset,
+      tag,
+      platform,
+      platformId,
+      companyId,
+      companyRole,
+      releaseYear,
+      sort,
+    })
     res.json(games)
   } catch (err) {
     console.error(err.message)
@@ -36,6 +49,25 @@ router.get('/search', async (req, res) => {
   } catch (err) {
     console.error(err.message)
     res.status(err.status || 500).json({ error: 'Failed to search games', details: err.message })
+  }
+})
+
+router.get('/count', async (req, res) => {
+  try {
+    const total = await countRpgGames({
+      q: String(req.query.q || ''),
+      tag: String(req.query.tag || ''),
+      platform: String(req.query.platform || ''),
+      platformId: Number(req.query.platformId || 0),
+      companyId: Number(req.query.companyId || 0),
+      companyRole: String(req.query.companyRole || ''),
+      releaseYear: Number(req.query.releaseYear || 0),
+    })
+
+    res.json({ total })
+  } catch (err) {
+    console.error(err.message)
+    res.status(500).json({ error: 'Failed to count RPG games', details: err.message })
   }
 })
 
