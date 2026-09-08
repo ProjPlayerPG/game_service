@@ -1,7 +1,8 @@
 const { igdbQuery } = require('../api/api')
 const {
+  filterGamesByContent,
   filterRpgGames,
-  prioritizeOfficialGames,
+  prioritizeEditorialGames,
   withGameProvenance,
 } = require('./gameSafety')
 const { distinctiveKeywordIds } = require('./chatSimilarity')
@@ -13,6 +14,7 @@ const {
   positiveIntegerFilter,
   sortClause,
   todayUtcTimestamp,
+  upcomingHorizonTimestamp,
   yearRange,
 } = require('./igdbQueryUtils')
 
@@ -43,16 +45,19 @@ const recommendationFields =
 const provenanceFields =
   'franchise.name,franchises.name,collection.name,collections.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name'
 const searchRankingPoolSize = 100
+const communityCatalogPoolSize = 500
 
 function catalogWhereParts({
   tag = '',
+  tagId = 0,
   platform = '',
   platformId = 0,
   companyId = 0,
   companyRole = '',
   releaseYear = 0,
+  sort = 'quality',
 } = {}) {
-  const tagId = genreFilters[normalizeFilter(tag)]
+  const selectedTagId = positiveIntegerFilter(tagId) || genreFilters[normalizeFilter(tag)]
   const selectedPlatformId = positiveIntegerFilter(platformId) || platformFilters[normalizeFilter(platform)]
   const selectedCompanyId = positiveIntegerFilter(companyId)
   const selectedCompanyRole = ['developer', 'publisher'].includes(normalizeFilter(companyRole))
@@ -64,8 +69,8 @@ function catalogWhereParts({
     'version_parent = null',
   ]
 
-  if (tagId && tagId !== 12) {
-    whereParts.push(`genres = (${tagId})`)
+  if (selectedTagId && selectedTagId !== 12) {
+    whereParts.push(`genres = (${selectedTagId})`)
   }
 
   if (selectedPlatformId) {
@@ -82,6 +87,9 @@ function catalogWhereParts({
   if (releaseRange) {
     whereParts.push(`first_release_date >= ${releaseRange.start}`)
     whereParts.push(`first_release_date < ${releaseRange.end}`)
+  } else if (normalizeFilter(sort) === 'quality') {
+    whereParts.push('first_release_date != null')
+    whereParts.push(`first_release_date <= ${upcomingHorizonTimestamp()}`)
   }
 
   return whereParts
@@ -99,43 +107,81 @@ async function listRpgGames({
   limit = 10,
   offset = 0,
   tag = '',
+  tagId = 0,
   platform = '',
   platformId = 0,
   companyId = 0,
   companyRole = '',
   releaseYear = 0,
-  sort = 'release_desc',
+  sort = 'quality',
+  content = '',
 } = {}) {
   const { safeLimit, safeOffset } = paginationWindow(limit, offset)
+  const selectedContent = normalizeFilter(content)
+  const communityOnly = selectedContent === 'community'
   const whereParts = catalogWhereParts({
     tag,
+    tagId,
     platform,
     platformId,
     companyId,
     companyRole,
     releaseYear,
+    sort,
   })
+  const queryLimit = communityOnly ? communityCatalogPoolSize : safeLimit
+  const queryOffset = communityOnly ? 0 : safeOffset
+  const querySort = communityOnly ? 'release_desc' : sort
 
   const query = `
-    fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating,${provenanceFields};
+    fields id,name,slug,category,summary,first_release_date,cover.url,genres.name,platforms.name,themes.name,age_ratings.rating,total_rating_count,hypes,${provenanceFields};
     where ${whereParts.join(' & ')};
-    sort ${sortClause(sort)};
-    limit ${safeLimit};
-    offset ${safeOffset};
+    sort ${sortClause(querySort)};
+    limit ${queryLimit};
+    offset ${queryOffset};
   `
 
-  return filterRpgGames(await igdbQuery('/games', query))
-    .map(withGameProvenance)
+  const games = filterGamesByContent(
+    filterRpgGames(await igdbQuery('/games', query)),
+    selectedContent,
+  )
+  const orderedGames = normalizeFilter(sort) === 'quality'
+    ? prioritizeEditorialGames(games)
+    : games
+  const paginatedGames = communityOnly
+    ? orderedGames.slice(safeOffset, safeOffset + safeLimit)
+    : orderedGames
+
+  return paginatedGames.map(withGameProvenance)
 }
 
-async function countRpgGames({ q = '', ...filters } = {}) {
+async function countRpgGames({ q = '', content = '', ...filters } = {}) {
   const term = String(q || '').trim()
   if (q && term.length < 2) return 0
 
   const searchClause = term ? `search "${escapeSearchTerm(term)}";` : ''
+  const whereParts = catalogWhereParts({
+    ...filters,
+    sort: term ? 'release_desc' : filters.sort,
+  })
+
+  if (normalizeFilter(content) === 'community') {
+    const query = `
+      ${searchClause}
+      fields id,name,category,summary,storyline,keywords.name,collections.name,age_ratings.rating,genres.name;
+      where ${whereParts.join(' & ')};
+      sort first_release_date desc;
+      limit ${communityCatalogPoolSize};
+    `
+    return filterGamesByContent(
+      filterRpgGames(await igdbQuery('/games', query)),
+      content,
+    ).length
+  }
+
   const query = `
     ${searchClause}
-    where ${catalogWhereParts(filters).join(' & ')};
+    where ${whereParts.join(' & ')};
   `
   const result = await igdbQuery('/games/count', query)
   const count = positiveIntegerFilter(result?.count)
@@ -447,12 +493,13 @@ async function searchGames({ q, limit = 10, offset = 0 } = {}) {
     limit ${rankingPoolLimit};
   `
 
-  return prioritizeOfficialGames(filterRpgGames(await igdbQuery('/games', query)))
+  return filterRpgGames(await igdbQuery('/games', query))
     .slice(safeOffset, safeOffset + safeLimit)
     .map(withGameProvenance)
 }
 
 module.exports = {
+  catalogWhereParts,
   countRpgGames,
   listRpgGames,
   listSpotlightGames,

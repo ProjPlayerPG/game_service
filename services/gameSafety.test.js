@@ -1,5 +1,6 @@
 const {
   classifyGameProvenance,
+  filterGamesByContent,
   filterPrimaryGames,
   filterRpgGames,
   hasAdultsOnlyRating,
@@ -8,6 +9,7 @@ const {
   isRpgGame,
   normalizeSafetyText,
   prioritizeOfficialGames,
+  prioritizeEditorialGames,
   withGameProvenance,
 } = require('./gameSafety')
 
@@ -18,8 +20,15 @@ describe('sécurité du catalogue', () => {
     expect(isPrimaryGame({ category: 0, version_parent: 42 })).toBe(false)
   })
 
-  it.each([1, 2, 3, 4, 5, 6, 7, 12, 13, 14])('bloque la catégorie IGDB %s', (category) => {
+  it.each([1, 2, 3, 4, 6, 7, 12, 13, 14])('bloque la catégorie IGDB %s', (category) => {
     expect(isPrimaryGame({ category })).toBe(false)
+  })
+
+  it('conserve les mods et les identifie comme contenus communautaires', () => {
+    const mod = { id: 4, category: 5, name: 'Community overhaul' }
+
+    expect(isPrimaryGame(mod)).toBe(true)
+    expect(classifyGameProvenance(mod)).toBe('community')
   })
 
   it('détecte la classification Adults Only', () => {
@@ -131,6 +140,25 @@ describe('sécurité du catalogue', () => {
         (game) => game.id,
       ),
     ).toEqual([3, 2, 1])
+  })
+
+  it('classe les fiches complètes sorties avant les jeux à venir, incomplets et communautaires', () => {
+    const releasedAt = Date.UTC(2025, 0, 1) / 1000
+    const upcomingAt = Date.UTC(2026, 6, 1) / 1000
+    const games = [
+      { id: 1, first_release_date: releasedAt },
+      { id: 2, category: 5, first_release_date: releasedAt, cover: { url: 'cover' }, summary: 'Mod' },
+      { id: 3, first_release_date: upcomingAt, cover: { url: 'cover' }, summary: 'Upcoming' },
+      { id: 4, first_release_date: releasedAt, cover: { url: 'cover' }, summary: 'Released' },
+    ]
+
+    expect(
+      prioritizeEditorialGames(games, {
+        nowTimestamp: Date.UTC(2026, 0, 1) / 1000,
+        upcomingHorizonTimestamp: Date.UTC(2027, 6, 1) / 1000,
+      }).map((game) => game.id),
+    ).toEqual([4, 3, 1, 2])
+    expect(filterGamesByContent(games, 'community').map((game) => game.id)).toEqual([2])
   })
 
   it('filtre en une seule passe les extensions et les contenus adultes', () => {
