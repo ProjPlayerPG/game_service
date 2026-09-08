@@ -13,23 +13,27 @@ router.get('/', async (req, res) => {
     const limit = Number(req.query.limit || 10)
     const offset = Number(req.query.offset || 0)
     const tag = String(req.query.tag || '')
+    const tagId = Number(req.query.tagId || 0)
     const platform = String(req.query.platform || '')
     const platformId = Number(req.query.platformId || 0)
     const companyId = Number(req.query.companyId || 0)
     const companyRole = String(req.query.companyRole || '')
     const releaseYear = Number(req.query.releaseYear || 0)
-    const sort = String(req.query.sort || 'release_desc')
+    const sort = String(req.query.sort || 'quality')
+    const content = String(req.query.content || '')
 
     const games = await listRpgGames({
       limit,
       offset,
       tag,
+      tagId,
       platform,
       platformId,
       companyId,
       companyRole,
       releaseYear,
       sort,
+      content,
     })
     res.json(games)
   } catch (err) {
@@ -57,11 +61,14 @@ router.get('/count', async (req, res) => {
     const total = await countRpgGames({
       q: String(req.query.q || ''),
       tag: String(req.query.tag || ''),
+      tagId: Number(req.query.tagId || 0),
       platform: String(req.query.platform || ''),
       platformId: Number(req.query.platformId || 0),
       companyId: Number(req.query.companyId || 0),
       companyRole: String(req.query.companyRole || ''),
       releaseYear: Number(req.query.releaseYear || 0),
+      sort: String(req.query.sort || 'quality'),
+      content: String(req.query.content || ''),
     })
 
     res.json({ total })

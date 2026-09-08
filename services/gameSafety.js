@@ -3,7 +3,6 @@ const blockedGameCategories = new Set([
   2, // expansion
   3, // bundle
   4, // standalone expansion
-  5, // mod
   6, // episode
   7, // season
   12, // fork
@@ -91,6 +90,8 @@ function filterRpgGames(games) {
 }
 
 function isLikelyUnofficialGame(game) {
+  if (Number(game?.category) === 5) return true
+
   const searchableText = normalizeSafetyText(
     [
       game?.name,
@@ -168,8 +169,62 @@ function prioritizeOfficialGames(games) {
     .map(({ game }) => game)
 }
 
+function filterGamesByContent(games, content = '') {
+  const safeGames = Array.isArray(games) ? games : []
+
+  if (String(content).trim().toLowerCase() === 'community') {
+    return safeGames.filter((game) => classifyGameProvenance(game) === 'community')
+  }
+
+  return safeGames
+}
+
+function editorialQualityRank(game, nowTimestamp, upcomingHorizonTimestamp) {
+  if (classifyGameProvenance(game) === 'community') return 3
+
+  const releaseTimestamp = Number(game?.first_release_date || 0)
+  const hasEditorialContent = Boolean(
+    releaseTimestamp > 0 && game?.cover?.url && String(game?.summary || '').trim(),
+  )
+
+  if (hasEditorialContent && releaseTimestamp <= nowTimestamp) return 0
+  if (hasEditorialContent && releaseTimestamp <= upcomingHorizonTimestamp) return 1
+  return 2
+}
+
+function prioritizeEditorialGames(
+  games,
+  {
+    nowTimestamp = Math.floor(Date.now() / 1000),
+    upcomingHorizonTimestamp = nowTimestamp + 18 * 31 * 24 * 60 * 60,
+  } = {},
+) {
+  return (Array.isArray(games) ? games : [])
+    .map((game, index) => ({
+      game,
+      index,
+      rank: editorialQualityRank(game, nowTimestamp, upcomingHorizonTimestamp),
+    }))
+    .sort((left, right) => {
+      if (left.rank !== right.rank) return left.rank - right.rank
+
+      const ratingDifference =
+        Number(right.game?.total_rating_count || 0) -
+        Number(left.game?.total_rating_count || 0)
+      if (ratingDifference) return ratingDifference
+
+      const releaseDifference =
+        Number(right.game?.first_release_date || 0) -
+        Number(left.game?.first_release_date || 0)
+      return releaseDifference || left.index - right.index
+    })
+    .map(({ game }) => game)
+}
+
 module.exports = {
   classifyGameProvenance,
+  editorialQualityRank,
+  filterGamesByContent,
   filterPrimaryGames,
   filterRpgGames,
   hasAdultsOnlyRating,
@@ -180,6 +235,7 @@ module.exports = {
   isRpgGame,
   normalizeSafetyText,
   prioritizeOfficialGames,
+  prioritizeEditorialGames,
   RPG_GENRE_ID,
   withGameProvenance,
 }

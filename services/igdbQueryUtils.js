@@ -9,6 +9,8 @@ function positiveIntegerFilter(value) {
 
 function sortClause(value) {
   switch (normalizeFilter(value)) {
+    case 'quality':
+      return 'total_rating_count desc'
     case 'name_asc':
       return 'name asc'
     case 'name_desc':
@@ -19,6 +21,12 @@ function sortClause(value) {
     default:
       return 'first_release_date desc'
   }
+}
+
+function upcomingHorizonTimestamp(months = 18, now = new Date()) {
+  const horizon = new Date(now)
+  horizon.setUTCMonth(horizon.getUTCMonth() + months)
+  return Math.floor(horizon.getTime() / 1000)
 }
 
 function yearRange(year) {
@@ -66,5 +74,6 @@ module.exports = {
   positiveIntegerFilter,
   sortClause,
   todayUtcTimestamp,
+  upcomingHorizonTimestamp,
   yearRange,
 }
