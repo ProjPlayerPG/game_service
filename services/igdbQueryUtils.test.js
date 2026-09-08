@@ -4,6 +4,7 @@ const {
   paginationWindow,
   positiveIntegerFilter,
   sortClause,
+  upcomingHorizonTimestamp,
   yearRange,
 } = require('./igdbQueryUtils')
 
@@ -25,6 +26,7 @@ describe('construction des requêtes IGDB', () => {
   })
 
   it.each([
+    ['quality', 'total_rating_count desc'],
     ['name_asc', 'name asc'],
     ['name_desc', 'name desc'],
     ['release_asc', 'first_release_date asc'],
@@ -32,6 +34,14 @@ describe('construction des requêtes IGDB', () => {
     ['inconnu', 'first_release_date desc'],
   ])('transforme le tri %s en clause IGDB', (input, expected) => {
     expect(sortClause(input)).toBe(expected)
+  })
+
+  it('limite la sélection éditoriale aux 18 prochains mois', () => {
+    const now = new Date('2026-09-08T00:00:00.000Z')
+
+    expect(upcomingHorizonTimestamp(18, now)).toBe(
+      Date.parse('2028-03-08T00:00:00.000Z') / 1000,
+    )
   })
 
   it('calcule les bornes UTC exactes d’une année', () => {
